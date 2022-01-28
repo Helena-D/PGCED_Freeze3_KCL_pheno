@@ -1,0 +1,4290 @@
+---
+title: "PGC-ED3 GLAD & NBR algorithms with cleaned data from the data cleaning team"
+author: "Helena Davies"
+date: "17/09/2021"
+output: html_document
+---
+
+# Set up workspace
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      comment=NA,
+                      prompt=FALSE,
+                      cache=FALSE)
+```
+
+Delete everything in your global environment
+```{r Delete everything in your global environment}
+remove(list = ls())
+```
+
+Call in library script
+```{r Source library}
+source("./libraries.R")
+```
+
+Call in functions script
+```{r Source functions}
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/add_numeric.R")
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/remove_duplicates.R")
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/package_check.R")
+source("./functions.R")
+```
+
+Retrieve the recent date
+```{r Recent date}
+date = Sys.Date()
+date
+```
+
+# Read in cleaned data - Eating disorder diagnosis
+```{r read in cleaned eating disorder diagnosis data}
+# COPING GLAD and NBR
+ED_diagnosis_coping_glad_nbr <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/coping_glad_nbr/algorithms/ed_algorithms_diagnostics_coping_glad_nbr_clean.rds")
+
+# GLAD
+ED_diagnosis_glad <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/algorithms/ed_algorithms_diagnostics_glad_clean.rds")
+```
+
+# Merge cleaned data
+```{r merge glad and coping cleaned disorder diagnosis data}
+ED_diagnosis_dat_merged <- dplyr::full_join(ED_diagnosis_coping_glad_nbr,
+                                            ED_diagnosis_glad,
+                                            by = c("ID",
+                                                   "sample"
+                                            ))
+ 
+# Check
+ED_diagnosis_dat_merged %>%
+  colnames()
+```
+
+# AAN SCREENER
+## GLAD
+```{r Read in AAN GLAD screener data}
+# GLAD
+AAN_screener_data_GLAD <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/glad_ed/aan_scr_glad_ed.rds") 
+
+# Check colnames
+AAN_screener_data_GLAD %>%
+  colnames()
+
+# Check number of rows
+AAN_screener_data_GLAD %>%
+  nrow()
+```
+
+Select columns
+```{r Select columns AAN screener GLAD data}
+exclude_cols_dem <- c("ID",
+                      "sample")
+
+AAN_screener_data_GLAD.id <- AAN_screener_data_GLAD  %>% 
+  drop_na(externalDataReference) %>% # Drop NAs
+  remove_duplicates("externalDataReference")  %>%
+  add_column(sample = "GLAD", .before = "aan.considered_lost_weight_period") %>% #create new column 
+  select(
+         ID = externalDataReference,# ID
+         sample, # Sample
+         aan.considered_lost_weight_period,
+         aan.stone_pounds_lose_note,
+         aan.stone_pounds_lose_note.1,
+         aan.weight_loss_occur_time,
+         aan.weigh_prior_stone_pounds,
+         aan.weigh_prior_stone_pounds.1
+         ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(AAN_screener_data_GLAD.id)
+# Inspect colnames
+colnames(AAN_screener_data_GLAD.id)
+#Differences
+dim(AAN_screener_data_GLAD)[1]-dim(AAN_screener_data_GLAD.id)[1]
+```
+
+
+## COPING GLAD 
+```{r Read in AAN COPING GLAD screener data}
+# GLAD
+AAN_screener_data_COPING_GLAD <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/coping_glad/aan_scr_coping_glad.rds") 
+
+# Check colnames
+AAN_screener_data_COPING_GLAD %>%
+  colnames()
+
+# Check number of rows
+AAN_screener_data_COPING_GLAD %>%
+  nrow()
+```
+
+Select columns AAN COPING GLAD SCREENER
+```{r Select columns AAN COPING GLAD SCREENER}
+exclude_cols_dem <- c("ID",
+                      "sample")
+
+AAN_screener_data_COPING_GLAD.id <- AAN_screener_data_COPING_GLAD  %>% 
+  drop_na(externalDataReference) %>% # Drop NAs
+  remove_duplicates("externalDataReference")  %>%
+  add_column(sample = "GLAD", .before = "aan.considered_lost_weight_period") %>% #create new column 
+  select(
+         ID = externalDataReference,# ID
+         sample, # Sample
+        aan.considered_lost_weight_period_cop = aan.considered_lost_weight_period,
+        aan.stone_pounds_lose_note_cop = aan.stone_pounds_pounds_lose,
+        aan.stone_pounds_lose_note.1_cop = aan.stone_pounds_pounds_lose.1,
+        aan.weight_loss_occur_time_cop = aan.weight_loss_occur_time,
+        aan.weigh_prior_stone_pounds_cop = aan.weigh_prior_stone_pounds,
+        aan.weigh_prior_stone_pounds.1_cop = aan.weigh_prior_stone_pounds.1
+         ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(AAN_screener_data_COPING_GLAD.id)
+# Inspect colnames
+colnames(AAN_screener_data_COPING_GLAD.id)
+#Differences
+dim(AAN_screener_data_COPING_GLAD)[1]-dim(AAN_screener_data_COPING_GLAD.id)[1]
+```
+
+## NBR
+```{r Read in AAN NBR screener data}
+# GLAD
+AAN_screener_data_NBR <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/coping_nbr/aan_scr_coping_nbr.rds") 
+
+# Check colnames
+AAN_screener_data_NBR %>%
+  colnames()
+
+# Check number of rows
+AAN_screener_data_NBR %>%
+  nrow()
+```
+
+Select columns AAN NBR SCREENER
+```{r Select columns AAN NBR SCREENER}
+
+exclude_cols_dem <- c("ID",
+                      "sample")
+
+AAN_screener_data_NBR.id <- AAN_screener_data_NBR  %>% 
+  drop_na(subjectid) %>% # Drop NAs
+  remove_duplicates("subjectid")  %>%
+  add_column(sample = "NBR", .before = "aan.considered_lost_weight_period") %>% #create new column 
+  select(
+         ID = subjectid,# ID
+         sample, # Sample
+         aan.considered_lost_weight_period_cop = aan.considered_lost_weight_period,
+         aan.stone_pounds_lose_note_cop = aan.stone_pounds_pounds_lose,
+         aan.stone_pounds_lose_note.1_cop = aan.stone_pounds_pounds_lose.1,
+         aan.weight_loss_occur_time_cop = aan.weight_loss_occur_time,
+         aan.weigh_prior_stone_pounds_cop = aan.weigh_prior_stone_pounds,
+         aan.weigh_prior_stone_pounds.1_cop = aan.weigh_prior_stone_pounds.1
+         ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(AAN_screener_data_NBR.id)
+# Inspect colnames
+colnames(AAN_screener_data_NBR.id)
+#Differences
+dim(AAN_screener_data_NBR)[1]-dim(AAN_screener_data_NBR.id)[1]
+```
+
+### Compare columns
+```{r compare columns AAN screener}
+janitor::compare_df_cols(
+  AAN_screener_data_NBR.id,
+  AAN_screener_data_COPING_GLAD.id,
+  AAN_screener_data_GLAD.id
+)
+```
+
+From the above, can see that: aan.stone_pounds_lose_note_cop, aan.stone_pounds_lose_note_cop_numeric, aan.weigh_prior_stone_pounds.1_cop_numeric, aan.weigh_prior_stone_pounds_cop,  aan.weigh_prior_stone_pounds.1_cop are character/factor in AAN_screener_data_COPING_GLAD.id but numeric in AAN_screener_data_NBR.id
+```{r convert to numeric AAN screener}
+AAN_screener_data_COPING_GLAD.id$aan.stone_pounds_lose_note_cop <- as.numeric(AAN_screener_data_COPING_GLAD.id$aan.stone_pounds_lose_note_cop)
+AAN_screener_data_COPING_GLAD.id$aan.stone_pounds_lose_note_cop_numeric<- as.numeric(AAN_screener_data_COPING_GLAD.id$aan.stone_pounds_lose_note_cop_numeric)
+AAN_screener_data_COPING_GLAD.id$aan.weigh_prior_stone_pounds.1_cop_numeric<- as.numeric(AAN_screener_data_COPING_GLAD.id$aan.weigh_prior_stone_pounds.1_cop_numeric)
+AAN_screener_data_COPING_GLAD.id$aan.weigh_prior_stone_pounds.1_cop <- as.numeric(AAN_screener_data_COPING_GLAD.id$aan.weigh_prior_stone_pounds.1_cop)
+AAN_screener_data_COPING_GLAD.id$aan.weigh_prior_stone_pounds_cop <- as.numeric(AAN_screener_data_COPING_GLAD.id$aan.weigh_prior_stone_pounds_cop)
+```
+
+### Bind rows: COPING GLAD and NBR
+```{r Bind rows: COPING GLAD and NBR AAN screener}
+AAN_screener_data_COPING_GLAD_NBR <- bind_rows(AAN_screener_data_NBR.id,
+                                               AAN_screener_data_COPING_GLAD.id)
+
+# Check
+AAN_screener_data_COPING_GLAD_NBR %>%
+  colnames()
+
+AAN_screener_data_COPING_GLAD_NBR %>%
+  nrow()
+```
+
+### Merge COPING GLAD NBR with GLAD
+```{r Merge COPING GLAD NBR with GLAD AAN screener}
+AAN_screener_merged <- dplyr::full_join(AAN_screener_data_COPING_GLAD_NBR,
+                                        AAN_screener_data_GLAD.id,
+                                        by = c("ID",
+                                               "sample")
+)
+
+# Check
+AAN_screener_merged %>%
+  colnames()
+
+AAN_screener_merged %>%
+  nrow()
+```
+
+
+# AAN SYMPTOMS
+## GLAD
+```{r Read in AAN GLAD symptom data}
+# GLAD
+AAN_symptom_data_GLAD <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/glad_ed/aan_glad_ed.rds") 
+
+# Check colnames
+AAN_symptom_data_GLAD %>%
+  colnames()
+
+# Check number of rows
+AAN_symptom_data_GLAD %>%
+  nrow()
+```
+
+Select columns
+```{r Select columns AAN symptom GLAD data}
+exclude_cols_dem <- c("ID",
+                      "sample")
+
+AAN_symptom_data_GLAD.id <- AAN_symptom_data_GLAD  %>% 
+  drop_na(externalDataReference) %>% # Drop NAs
+  remove_duplicates("externalDataReference")  %>%
+  add_column(sample = "GLAD", .before = "aan.1.eating_disorder_due_illness") %>% #create new column 
+  select(
+         ID = externalDataReference,# ID
+         sample, # Sample
+         aan.1.eating_disorder_due_illness,
+         aan.1.what_was_the_illness.txt,
+         aan.1.feel_fat_period_significant,
+         aan.1.gain_weight_afraid_fat,
+         aan.1.not_at_all_dependentcompletely_dependent,
+         aan.1.health_negative_consequences_significant,
+         aan.1.people_thought_larger_parts
+         ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(AAN_symptom_data_GLAD.id)
+# Inspect colnames
+colnames(AAN_symptom_data_GLAD.id)
+#Differences
+dim(AAN_symptom_data_GLAD)[1]-dim(AAN_symptom_data_GLAD.id)[1]
+```
+
+## COPING GLAD 
+```{r Read in AAN COPING GLAD symptom data}
+# GLAD
+AAN_symptom_data_COPING_GLAD <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/coping_glad/aan_coping_glad.rds") 
+
+# Check colnames
+AAN_symptom_data_COPING_GLAD %>%
+  colnames()
+
+# Check number of rows
+AAN_symptom_data_COPING_GLAD %>%
+  nrow()
+```
+
+Select columns AAN COPING GLAD symptom
+```{r Select columns AAN COPING GLAD symptom}
+exclude_cols_dem <- c("ID",
+                      "sample")
+
+AAN_symptom_data_COPING_GLAD.id <- AAN_symptom_data_COPING_GLAD  %>% 
+  drop_na(externalDataReference) %>% # Drop NAs
+  remove_duplicates("externalDataReference")  %>%
+  add_column(sample = "GLAD", .before = "aan.1.eating_disorder_due_illness") %>% #create new column 
+  select(
+         ID = externalDataReference,# ID
+         sample, # Sample
+         aan.1.eating_disorder_due_illness_cop = aan.1.eating_disorder_due_illness,
+         aan.1.what_was_the_illness.txt_cop = aan.1.what_was_the_illness.txt,
+         aan.1.feel_fat_period_significant_cop = aan.1.feel_fat_period_significant,
+         aan.1.gain_weight_afraid_fat_cop = aan.1.gain_weight_afraid_fat,
+         aan.1.not_at_all_dependentcompletely_dependent_cop = aan.1.not_at_all_dependentcompletely_dependent,
+         aan.1.health_negative_consequences_significant_cop = aan.1.health_negative_consequences_significant,
+         aan.1.people_thought_larger_parts_cop = aan.1.body_larger_people_thought
+         ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(AAN_symptom_data_COPING_GLAD.id)
+# Inspect colnames
+colnames(AAN_symptom_data_COPING_GLAD.id)
+#Differences
+dim(AAN_symptom_data_COPING_GLAD)[1]-dim(AAN_symptom_data_COPING_GLAD.id)[1]
+```
+
+## NBR
+```{r Read in AAN NBR symptom data}
+# GLAD
+AAN_symptom_data_NBR <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/coping_nbr/aan_coping_nbr.rds") 
+
+# Check colnames
+AAN_symptom_data_NBR %>%
+  colnames()
+
+# Check number of rows
+AAN_symptom_data_NBR %>%
+  nrow()
+```
+
+Select columns AAN NBR SYMTPOM DATA
+```{r Select columns AAN NBR SYMTPOM DATA}
+exclude_cols_dem <- c("ID",
+                      "sample")
+
+AAN_symptom_data_NBR.id <- AAN_symptom_data_NBR  %>% 
+  drop_na(subjectid) %>% # Drop NAs
+  remove_duplicates("subjectid")  %>%
+  add_column(sample = "NBR", .before = "aan.1.significant_weight_loss_eating") %>% #create new column 
+  select(
+         ID = subjectid,# ID
+         sample, # Sample
+        aan.1.eating_disorder_due_illness_cop = aan.1.significant_weight_loss_eating,
+        aan.1.what_was_the_illness.txt_cop = aan.1.what_was_the_illness.txt,
+        aan.1.feel_fat_period_significant_cop = aan.1.significant_weight_loss_feel,
+        aan.1.gain_weight_afraid_fat_cop = aan.1.significant_weight_loss_gain,
+        aan.1.not_at_all_dependentcompletely_dependent_cop = aan.1.not_at_all_dependentcompletely_dependent,
+        aan.1.health_negative_consequences_significant_cop = aan.1.significant_weight_loss_health,
+        aan.1.people_thought_larger_parts_cop = aan.1.significant_weight_loss_body
+         ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(AAN_symptom_data_NBR.id)
+# Inspect colnames
+colnames(AAN_symptom_data_NBR.id)
+#Differences
+dim(AAN_symptom_data_NBR)[1]-dim(AAN_symptom_data_NBR.id)[1]
+
+```
+
+### Compare columns
+```{r compare columns AAN symptom}
+janitor::compare_df_cols(
+  AAN_symptom_data_NBR.id,
+  AAN_symptom_data_COPING_GLAD.id,
+  AAN_symptom_data_GLAD.id
+)
+```
+
+From the above, can see that: all columns match in terms of data type
+### Bind rows: COPING GLAD and NBR
+```{r Bind rows: COPING GLAD and NBR AAN symptom}
+AAN_symptom_data_COPING_GLAD_NBR <- bind_rows(AAN_symptom_data_NBR.id,
+                                               AAN_symptom_data_COPING_GLAD.id)
+
+# Check
+AAN_symptom_data_COPING_GLAD_NBR %>%
+  colnames()
+
+AAN_symptom_data_COPING_GLAD_NBR %>%
+  nrow()
+```
+
+### Merge COPING GLAD NBR with GLAD
+```{r Merge COPING GLAD NBR with GLAD AAN symptom}
+AAN_symptom_merged <- dplyr::full_join(AAN_symptom_data_COPING_GLAD_NBR,
+                                        AAN_symptom_data_GLAD.id,
+                                        by = c("ID",
+                                               "sample")
+)
+
+# Check
+AAN_symptom_merged %>%
+  colnames()
+
+AAN_symptom_merged %>%
+  nrow()
+```
+
+# Merge eating disorder diagnosis data with AAN data
+```{r merge ED diagnosis data with AAN data}
+# First, merge AAN screener and AAN symptom
+AAN_merged <- dplyr::full_join(AAN_symptom_merged,
+                               AAN_screener_merged,
+                               by = c("ID",
+                                      "sample"))
+
+# Merge with ED diagnosis data
+dat_merged <- dplyr::full_join(AAN_merged,
+                               ED_diagnosis_dat_merged,
+                               by = c("ID",
+                                      "sample"))
+
+# Check
+dat_merged %>%
+  colnames()
+
+dat_merged %>%
+  nrow()
+```
+
+# Additional variables (i.e., covariates)
+• Age (i.e., when assessed); (from glad dem)
+• Age at onset;
+• Sex (biological sex at birth); (from glad dem)
+• Cases: Minimum lifetime eating disorder-related body mass index (BMI);
+• Controls: Minimum adult BMI;
+• Maximum lifetime BMI;
+• Current BMI (at time of assessment) (from glad dem)
+
+## Age when assessed
+```{r age when assessed}
+# GLAD
+dat_glad_age <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/demographics/age_glad_clean.rds")
+
+# COPING GLAD and NBR
+dat_glad_coping_nbr_age <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/coping_glad_nbr/demographics/age_coping_glad_nbr_clean.rds")
+
+# Merge
+dat_merged_age <- dplyr::full_join(dat_glad_age,
+                                   dat_glad_coping_nbr_age,
+                                   by = c("ID",
+                                         "sample"
+                                         )
+                                   )
+
+
+
+# Check
+dat_merged_age %>%
+  colnames()
+
+dat_merged_age %>%
+  nrow()
+
+# Select relevant columns
+dat_merged_age <- dat_merged_age %>%
+  select(ID,
+         sample,
+         age_at_assessment = dem.age_likely, # Combination of self-reported and DOB
+         age_at_assessment_cop = dem.dob_age_cop, # DOB only 
+         age_at_assessment_category_cop = dem.age_category_cop
+         )
+```
+
+## Sex
+```{r sex}
+# GLAD
+dat_glad_sex <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/demographics/sex_gender_sexuality_glad_clean.rds")
+
+# COPING GLAD and NBR
+dat_coping_glad_nbr_sex <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/coping_glad_nbr/demographics/sex_gender_sexuality_coping_glad_nbr_clean.rds")
+
+# Merge
+dat_merged_sex <- dplyr::full_join(dat_glad_sex,
+                                   dat_coping_glad_nbr_sex,
+                                   by = c("ID",
+                                         "sample"
+                                         )
+                                   )
+
+
+
+# Check
+dat_merged_sex %>%
+  colnames()
+
+dat_merged_sex %>%
+  nrow()
+
+# Select relevant columns
+dat_merged_sex <- dat_merged_sex %>%
+  select(ID,
+         sample,
+         sex = dem.sex,
+         sex_cop = dem.sex_cop
+        
+         )
+```
+
+## Current BMI
+```{r current BMI}
+# GLAD
+dat_glad_current_BMI <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/demographics/signup_bmi_height_weight_glad_clean.rds")
+
+# COPING GLAD and NBR
+dat_coping_glad_nbr_current_BMI <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/coping_glad_nbr/demographics/signup_bmi_height_weight_coping_glad_nbr_clean.rds")
+
+# Merge
+dat_merged_current_BMI <- dplyr::full_join(dat_glad_current_BMI,
+                                   dat_coping_glad_nbr_current_BMI,
+                                   by = c("ID",
+                                         "sample"
+                                         )
+                                   )
+
+
+
+# Check
+dat_merged_current_BMI %>%
+  colnames()
+
+dat_merged_current_BMI %>%
+  nrow()
+
+# Select relevant columns
+dat_merged_current_BMI <- dat_merged_current_BMI %>%
+  select(ID,
+         sample,
+         current_bmi = dem.bmi_signup,
+         current_bmi_cop = dem.bmi_signup_cop,
+         
+         # For AAN BMI calculations
+         current_height_m = dem.height_signup_m,
+         current_height_m_cop = dem.height_signup_m_cop
+        
+         )
+```
+
+## Max BMI
+```{r maximum BMI}
+# GLAD
+dat_glad_highest_BMI <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/demographics/highest_bmi_height_weight_glad_clean.rds")
+
+# COPING GLAD and NBR
+dat_coping_glad_nbr_highest_BMI <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/coping_glad_edgi_nbr/demographics/highest_bmi_weight_coping_glad_edgi_nbr_clean.rds")
+
+# Filter out EDGI participant
+dat_coping_glad_nbr_highest_BMI <- dat_coping_glad_nbr_highest_BMI %>%
+  filter(sample != "EDGI")
+
+# Merge
+dat_merged_highest_BMI <- dplyr::full_join(dat_glad_highest_BMI,
+                                   dat_coping_glad_nbr_highest_BMI,
+                                   by = c("ID",
+                                         "sample"
+                                         )
+                                   )
+
+
+
+# Check
+dat_merged_highest_BMI %>%
+  colnames()
+
+dat_merged_highest_BMI %>%
+  nrow()
+
+# Select relevant columns
+dat_merged_highest_BMI <- dat_merged_highest_BMI %>%
+  select(ID,
+         sample,
+         highest_bmi = dem.bmi_highest,
+         highest_bmi_cop = dem.bmi_highest_cop
+        
+         )
+```
+
+## Min BMI /  Min ED related BMI
+```{r minimum BMI}
+# GLAD
+dat_glad_highest_BMI <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/demographics/lowest_bmi_height_weight_glad_clean.rds")
+
+# COPING GLAD and NBR
+dat_coping_glad_nbr_lowest_BMI <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/coping_glad_edgi_nbr/demographics/lowest_bmi_height_weight_coping_glad_edgi_nbr_clean.rds")
+
+# Filter out EDGI participant
+dat_coping_glad_nbr_lowest_BMI <- dat_coping_glad_nbr_lowest_BMI %>%
+  filter(sample != "EDGI")
+
+# Merge
+dat_merged_lowest_BMI <- dplyr::full_join(dat_glad_highest_BMI,
+                                   dat_coping_glad_nbr_lowest_BMI,
+                                   by = c("ID",
+                                         "sample"
+                                         )
+                                   )
+
+
+
+# Check
+dat_merged_lowest_BMI %>%
+  colnames()
+
+dat_merged_lowest_BMI %>%
+  nrow()
+
+# Select relevant columns
+dat_merged_lowest_BMI <- dat_merged_lowest_BMI %>%
+  select(ID,
+         sample,
+         AN_lowest_bmi = an.bmi_lowest,
+         lowest_bmi = dem.bmi_lowest,
+         AN_lowest_bmi_cop = an.bmi_lowest_cop,
+         lowest_bmi_cop = dem.bmi_lowest_cop
+        
+         )
+```
+
+# Age at onset: Low weight
+## GLAD
+```{r GLAD age at onset read in data}
+# GLAD anorexia/low weight
+glad_an_age_at_onset <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/glad_ed/an_glad_ed.rds")
+
+# Check
+glad_an_age_at_onset %>%
+  colnames()
+
+glad_an_age_at_onset %>%
+  nrow()
+```
+
+```{r select columns age at onset GLAD}
+glad_an_age_at_onset.id <- glad_an_age_at_onset %>% 
+  drop_na(externalDataReference) %>% # Drop NAs
+  remove_duplicates("externalDataReference")  %>%
+  add_column(sample = "GLAD", .before = "an.how_old_were_you_then") %>% #create new column 
+  select(
+         ID = externalDataReference,# ID
+         sample,
+         an.how_old_were_you = an.how_old_were_you_then
+         ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+  mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(glad_an_age_at_onset.id )
+# Inspect colnames
+colnames(glad_an_age_at_onset.id )
+#Differences
+dim(glad_an_age_at_onset)[1]-dim(glad_an_age_at_onset.id)[1]
+```
+
+## COPING GLAD 
+```{r GLAD COPING age at onset read in data}
+# GLAD anorexia/low weight
+glad_coping_an_age_at_onset <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/coping_glad/an_coping_glad.rds")
+
+# Check
+glad_coping_an_age_at_onset %>%
+  colnames()
+
+glad_coping_an_age_at_onset %>%
+  nrow()
+```
+
+```{r select columns age at onset GLAD COPING}
+glad_coping_an_age_at_onset.id <- glad_coping_an_age_at_onset %>% 
+  drop_na(externalDataReference) %>% # Drop NAs
+  remove_duplicates("externalDataReference")  %>%
+  add_column(sample = "GLAD", .before = "an.1.how_old_were_you_then.txt") %>% #create new column 
+  select(
+         ID = externalDataReference,# ID
+         sample,
+         an.how_old_were_you_cop = an.1.how_old_were_you_then.txt
+         ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+  mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(glad_coping_an_age_at_onset.id )
+# Inspect colnames
+colnames(glad_coping_an_age_at_onset.id )
+#Differences
+dim(glad_coping_an_age_at_onset)[1]-dim(glad_coping_an_age_at_onset.id)[1]
+```
+
+## NBR
+```{r NBR age at onset read in data}
+# GLAD anorexia/low weight
+nbr_an_age_at_onset <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/coping_nbr/an_coping_nbr.rds")
+
+# Check
+nbr_an_age_at_onset %>%
+  colnames()
+
+nbr_an_age_at_onset %>%
+  nrow()
+```
+
+```{r select columns age at onset NBR}
+nbr_an_age_at_onset.id <- nbr_an_age_at_onset %>% 
+  drop_na(subjectid) %>% # Drop NAs
+  remove_duplicates("subjectid")  %>%
+  add_column(sample = "NBR", .before = "an.1.how_old_were_you_then.txt") %>% #create new column 
+  select(
+         ID = subjectid,# ID
+         sample,
+         an.how_old_were_you_cop = an.1.how_old_were_you_then.txt
+         ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+  mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(nbr_an_age_at_onset.id )
+# Inspect colnames
+colnames(nbr_an_age_at_onset.id )
+#Differences
+dim(nbr_an_age_at_onset)[1]-dim(nbr_an_age_at_onset.id)[1]
+```
+
+### Compare columns
+```{r compare columns AN age onset}
+janitor::compare_df_cols(
+  glad_coping_an_age_at_onset.id,
+  nbr_an_age_at_onset.id
+)
+```
+
+From the above, can see that: all columns match in terms of data type
+### Bind rows: COPING GLAD and NBR
+```{r Bind rows: COPING GLAD and NBR AN age at onset}
+AN_age_onset_COPING_GLAD_NBR <- bind_rows(glad_coping_an_age_at_onset.id,
+                                               nbr_an_age_at_onset.id)
+
+# Check
+AN_age_onset_COPING_GLAD_NBR %>%
+  colnames()
+
+AN_age_onset_COPING_GLAD_NBR %>%
+  nrow()
+```
+
+### Merge COPING GLAD NBR with GLAD
+```{r Merge COPING GLAD NBR with GLAD AN age at onset}
+AN_age_at_onset_merged <- dplyr::full_join(AN_age_onset_COPING_GLAD_NBR,
+                                        glad_an_age_at_onset.id,
+                                        by = c("ID",
+                                               "sample")
+)
+
+# Check
+AN_age_at_onset_merged %>%
+  colnames()
+
+AN_age_at_onset_merged %>%
+  nrow()
+```
+
+### Clean AN age of onset
+#### GLAD
+```{r Clean AN age of onset GLAD}
+# Define age limits
+  age_upper_limit = 117 # The oldest person in the world is 117 years
+  age_lower_limit = 4 # Lowest age of onset
+  
+# Identify number of outliers
+  length(
+    which(
+      AN_age_at_onset_merged$an.how_old_were_you > age_upper_limit |
+        AN_age_at_onset_merged$an.how_old_were_you < age_lower_limit
+    )
+  )
+  
+# Remove age outliers
+  AN_age_at_onset_merged <- AN_age_at_onset_merged %>%
+    mutate(
+      an.how_old_were_you =
+        if_else(
+          an.how_old_were_you > age_upper_limit |
+          an.how_old_were_you < age_lower_limit,
+          true = NA_real_,
+          false = an.how_old_were_you,
+          missing = NA_real_
+        )
+    )
+  
+# Inspect variable
+  AN_age_at_onset_merged %>%
+    descr(
+      an.how_old_were_you
+    )
+```
+
+#### GLAD COPING and NBR
+```{r Clean AN age of onset GLAD COPING and NBR}
+# Define age limits
+  age_upper_limit = 117 # The oldest person in the world is 117 years
+  age_lower_limit = 4 # Lowest age of onset
+  
+# Identify number of outliers
+  length(
+    which(
+      AN_age_at_onset_merged$an.how_old_were_you_cop > age_upper_limit |
+        AN_age_at_onset_merged$an.how_old_were_you_cop < age_lower_limit
+    )
+  )
+  
+# Remove age outliers
+  AN_age_at_onset_merged <- AN_age_at_onset_merged %>%
+    mutate(
+      an.how_old_were_you_cop =
+        if_else(
+          an.how_old_were_you_cop > age_upper_limit |
+          an.how_old_were_you_cop < age_lower_limit,
+          true = NA_real_,
+          false = an.how_old_were_you_cop,
+          missing = NA_real_
+        )
+    )
+  
+# Inspect variable
+  AN_age_at_onset_merged %>%
+    descr(
+      an.how_old_were_you_cop
+    )
+```
+
+#### Select relevant variables: age at onset
+```{r Select relevant variables: age at onset low weight}
+AN_age_at_onset_merged <- AN_age_at_onset_merged %>%
+  select(ID,
+         sample, 
+          low_weight_age_onset = an.how_old_were_you,
+         low_weight_age_onset_cop = an.how_old_were_you_cop
+         )
+```
+
+# Age at onset: Binge eating
+## GLAD
+```{r GLAD age at onset BE read in data}
+# GLAD binge eating
+glad_be_age_at_onset <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/glad_ed/be_glad_ed.rds")
+
+# Check
+glad_be_age_at_onset %>%
+  colnames()
+
+glad_be_age_at_onset %>%
+  nrow()
+```
+
+Select columns BE age at onset GLAD
+```{r Select columns BE age onset glad}
+exclude_cols_dem <- c("ID",
+                      "sample")
+
+glad_be_age_at_onset.id <- glad_be_age_at_onset  %>% 
+  drop_na(externalDataReference) %>% # Drop NAs
+  remove_duplicates("externalDataReference")  %>%
+  add_column(sample = "GLAD", .before = "be.began_roughly_regular_episodes.txt") %>% #create new column 
+  select(
+         ID = externalDataReference,# ID
+         sample, # Sample
+         be.began_roughly_regular_episodes.txt,
+         
+         # Need to also read in these variables as not saved in the ED diagnosis dataset
+         be.short_period_ate_regard, # Binge eating
+         be.loss_control = be.binge_eating_stop_eating, # Loss of control
+         be.per_week = be.binge_eating_episodes_experience.txt, # week
+         be.per_month = be.binge_eating_experience_episodes.txt, # Episodes in one month 
+         be.per_year = be.binge_eating_experience_episodes.txt.1, # Episodes in one year
+         be.dur_years = be.long_experience_regularly_occurring, # Duration in years
+         be.dur_months = be.long_experience_regularly_occurring.1 # Duration in months
+    ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(glad_be_age_at_onset.id)
+# Inspect colnames
+colnames(glad_be_age_at_onset.id)
+#Differences
+dim(glad_be_age_at_onset)[1]-dim(glad_be_age_at_onset.id)[1]
+```
+
+## GLAD COPING
+```{r GLAD coping age at onset BE read in data}
+# GLAD COPING binge eating
+glad_coping_be_age_at_onset <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/coping_glad/be_coping_glad.rds")
+
+# Check
+glad_coping_be_age_at_onset %>%
+  colnames()
+
+glad_coping_be_age_at_onset %>%
+  nrow()
+```
+
+Select columns BE age at onset GLAD COPING
+```{r Select columns BE age onset glad coping}
+exclude_cols_dem <- c("ID",
+                      "sample")
+
+glad_coping_be_age_at_onset.id <- glad_coping_be_age_at_onset  %>% 
+  drop_na(externalDataReference) %>% # Drop NAs
+  remove_duplicates("externalDataReference")  %>%
+  add_column(sample = "GLAD", .before = "be.roughly_binge_eating_regular.txt") %>% #create new column 
+  select(
+         ID = externalDataReference,# ID
+         sample, # Sample
+         be.began_roughly_regular_episodes.txt_cop = be.roughly_binge_eating_regular.txt
+       
+      ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(glad_coping_be_age_at_onset.id)
+# Inspect colnames
+colnames(glad_coping_be_age_at_onset.id)
+#Differences
+dim(glad_coping_be_age_at_onset)[1]-dim(glad_coping_be_age_at_onset.id)[1]
+```
+
+## NBR
+```{r NBR age at onset BE read in data}
+# NBR binge eating
+nbr_be_age_at_onset <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/coping_nbr/be_coping_nbr.rds")
+
+# Check
+nbr_be_age_at_onset %>%
+  colnames()
+
+nbr_be_age_at_onset %>%
+  nrow()
+```
+
+Select columns BE age at onset NBR
+```{r Select columns BE age onset NBR}
+exclude_cols_dem <- c("ID",
+                      "sample")
+
+nbr_be_age_at_onset.id <- nbr_be_age_at_onset  %>% 
+  drop_na(subjectid) %>% # Drop NAs
+  remove_duplicates("subjectid")  %>%
+  add_column(sample = "GLAD", .before = "be.roughly_binge_eating_regular.txt") %>% #create new column 
+  select(
+         ID = subjectid,# ID
+         sample, # Sample
+         be.began_roughly_regular_episodes.txt_cop = be.roughly_binge_eating_regular.txt
+       
+      ) %>%
+    add_numeric(., exclude = exclude_cols_dem) %>%
+mutate_if(is.numeric, ~na_if(., -88)) %>% # Recode missing values to NAs in numeric variables
+  mutate_if(is.numeric, ~na_if(., -99)) %>%
+  mutate_if(is.numeric, ~na_if(., -77)) %>%
+  mutate_if(is.factor, ~na_if(., "Seen but not answered")) %>% # Recode missing values to NAs in factor variables
+  mutate_if(is.factor, ~na_if(., "Don't know")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to say")) %>%
+  mutate_if(is.factor, ~na_if(., "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Seen but not answered")) %>% # Drop empty factor levels
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Don't know")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to answer")) %>%
+  mutate_if(is.factor, ~forcats::fct_drop(., only = "Prefer not to say"))
+
+# Inspect dimensions
+dim(nbr_be_age_at_onset.id)
+# Inspect colnames
+colnames(nbr_be_age_at_onset.id)
+#Differences
+dim(nbr_be_age_at_onset)[1]-dim(nbr_be_age_at_onset.id)[1]
+```
+
+### Compare columns
+```{r compare columns BE age onset }
+janitor::compare_df_cols(
+  glad_coping_be_age_at_onset.id,
+  nbr_be_age_at_onset.id
+)
+```
+
+From the above, can see that: all columns match in terms of data type
+### Bind rows: COPING GLAD and NBR
+```{r Bind rows: COPING GLAD and NBR BE age at onset}
+BE_age_onset_COPING_GLAD_NBR <- bind_rows(glad_coping_be_age_at_onset.id,
+                                               nbr_be_age_at_onset.id)
+
+# Check
+BE_age_onset_COPING_GLAD_NBR %>%
+  colnames()
+
+BE_age_onset_COPING_GLAD_NBR %>%
+  nrow()
+```
+
+### Merge COPING GLAD NBR with GLAD
+```{r Merge COPING GLAD NBR with GLAD BE age at onset}
+BE_age_at_onset_merged <- dplyr::full_join(BE_age_onset_COPING_GLAD_NBR,
+                                        glad_be_age_at_onset.id,
+                                        by = c("ID",
+                                               "sample")
+)
+
+# Check
+BE_age_at_onset_merged %>%
+  colnames()
+
+BE_age_at_onset_merged %>%
+  nrow()
+```
+
+
+### Clean BE age of onset
+#### GLAD
+```{r Clean BE age of onset GLAD}
+# Define age limits
+  age_upper_limit = 117 # The oldest person in the world is 117 years
+  age_lower_limit = 4 # Lowest age of onset
+  
+# Identify number of outliers
+  length(
+    which(
+      BE_age_at_onset_merged$be.began_roughly_regular_episodes.txt > age_upper_limit |
+       BE_age_at_onset_merged$be.began_roughly_regular_episodes.txt < age_lower_limit
+    )
+  )
+  
+# Remove age outliers
+  BE_age_at_onset_merged <- BE_age_at_onset_merged %>%
+    mutate(
+      be.began_roughly_regular_episodes.txt =
+        if_else(
+          be.began_roughly_regular_episodes.txt > age_upper_limit |
+          be.began_roughly_regular_episodes.txt < age_lower_limit,
+          true = NA_real_,
+          false = be.began_roughly_regular_episodes.txt,
+          missing = NA_real_
+        )
+    )
+  
+# Inspect variable
+  BE_age_at_onset_merged %>%
+    descr(
+      be.began_roughly_regular_episodes.txt
+    )
+```
+
+#### GLAD COPING and NBR
+```{r Clean BE age of onset GLAD COPING and NBR}
+# Define age limits
+  age_upper_limit = 117 # The oldest person in the world is 117 years
+  age_lower_limit = 4 # Lowest age of onset
+  
+# Identify number of outliers
+  length(
+    which(
+      BE_age_at_onset_merged$be.began_roughly_regular_episodes.txt_cop > age_upper_limit |
+        BE_age_at_onset_merged$be.began_roughly_regular_episodes.txt_cop < age_lower_limit
+    )
+  )
+  
+# Remove age outliers
+  BE_age_at_onset_merged <- BE_age_at_onset_merged %>%
+    mutate(
+      be.began_roughly_regular_episodes.txt_cop =
+        if_else(
+          be.began_roughly_regular_episodes.txt_cop > age_upper_limit |
+          be.began_roughly_regular_episodes.txt_cop < age_lower_limit,
+          true = NA_real_,
+          false = be.began_roughly_regular_episodes.txt_cop,
+          missing = NA_real_
+        )
+    )
+  
+# Inspect variable
+  BE_age_at_onset_merged %>%
+    descr(
+      be.began_roughly_regular_episodes.txt_cop
+    )
+```
+
+#### Select relevant variables: age at onset
+```{r Select relevant variables: age at onset binge eating}
+BE_age_at_onset_merged <- BE_age_at_onset_merged %>%
+  select(ID,
+         sample, 
+         binge_eating_age_onset = be.began_roughly_regular_episodes.txt,
+         binge_eating_age_onset_cop = be.began_roughly_regular_episodes.txt_cop,
+         
+         # Add GLAD BE variables
+         be.short_period_ate_regard, 
+         be.loss_control,
+         be.per_week,
+         be.per_month,
+         be.per_year,
+         be.dur_years,
+         be.dur_months,
+         
+         be.short_period_ate_regard_numeric, 
+         be.loss_control_numeric,
+         be.per_week_numeric,
+         be.per_month_numeric,
+         be.per_year_numeric,
+         be.dur_years_numeric,
+         be.dur_months_numeric,
+         )
+```
+
+### Merge all additional variable data
+```{r bind all additional variable data}
+additional_variables1 <- dplyr::full_join(dat_merged_sex,
+                                  dat_merged_age,
+                                  by=c("ID",
+                                       "sample"))
+
+additional_variables2 <- dplyr::full_join(additional_variables1,
+                                  dat_merged_current_BMI,
+                                  by=c("ID",
+                                       "sample"))
+
+
+additional_variables3 <- dplyr::full_join(additional_variables2,
+                                  dat_merged_highest_BMI,
+                                  by=c("ID",
+                                       "sample"))
+
+additional_variables4 <- dplyr::full_join(additional_variables3,
+                                  dat_merged_lowest_BMI,
+                                  by=c("ID",
+                                       "sample"))
+
+additional_variables5 <- dplyr::full_join(additional_variables4,
+                                  AN_age_at_onset_merged,
+                                  by=c("ID",
+                                       "sample"))
+
+additional_variables <- dplyr::left_join(additional_variables5,
+                                  BE_age_at_onset_merged,
+                                  by="ID")
+                                  
+
+# Check
+additional_variables %>%
+  colnames()
+
+additional_variables %>%
+  nrow()
+
+# Rename sample 
+additional_variables$sample <- additional_variables$sample.x
+additional_variables$sample.x <- NULL
+additional_variables$sample.y <- NULL
+
+
+# Check again
+additional_variables %>%
+  colnames()
+
+additional_variables %>%
+  nrow()
+
+additional_variables %>%
+  freq(sample)
+```
+
+### Merge eating disorder diagnosis data (incl. individual variables), AAN data, and additional variable data
+```{r merge all data up to this point}
+dat <- dplyr::full_join(dat_merged, # ED diagnosis plus AAN data
+                        additional_variables, # Additional variables (covariates)
+                        by = c("ID",
+                               "sample"
+                               )
+                        )
+
+# Check
+dat %>%
+  colnames()
+
+dat %>%
+  nrow()
+
+dat %>%
+  freq(sample)
+```
+
+# Self-reported diagnosis
+## MHD
+```{r read in mhd cleaned data}
+# GLAD
+glad_mhd <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/clinical/mhd_glad_clean.rds")
+
+# Check
+glad_mhd %>%
+  colnames()
+
+glad_mhd %>%
+  nrow()
+
+# COPING GLAD and NBR
+glad_coping_mhd <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/coping_glad_nbr/clinical/mhd_coping_glad_nbr_clean.rds")
+
+# Check
+glad_coping_mhd %>%
+  colnames()
+
+glad_coping_mhd %>%
+  nrow()
+
+# Merge
+mhd <- dplyr::full_join(glad_mhd,
+                        glad_coping_mhd,
+                        by = c("ID",
+                               "sample"
+                               )
+                        )
+
+# Select relevant columns
+mhd <- mhd %>%
+  select(ID,
+         sample,
+         # GLAD MHD
+         mhd.an_numeric,
+         mhd.atypical_an_numeric,
+         mhd.bed_numeric,
+         mhd.bn_numeric,
+         mhd.atypical_bn_numeric,
+         mhd.atypical_bed_numeric,
+         mhd.suspected_eating_disorder_diagnosed_numeric,
+         mhd.none_eds_numeric,
+         
+         # GLAD COPING AND NBR
+         mhd.an_cop_numeric,
+         mhd.atypical_an_cop_numeric,
+         mhd.bed_cop_numeric,
+         mhd.bn_cop_numeric,
+         mhd.atypical_bn_cop_numeric,
+         mhd.atypical_bed_cop_numeric,
+         mhd.suspected_eating_disorder_diagnosed_cop_numeric,
+         mhd.none_eds_cop_numeric)
+```
+
+## GLAD ED100K screener
+```{r GLAD ED100K screener self-report diagnosis read in data}
+glad_ED100K_selfreport <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/eating/selfreported_ed100k_diagnoses_glad_clean.rds")
+
+# Check
+glad_ED100K_selfreport %>%
+  colnames()
+
+glad_ED100K_selfreport %>%
+  nrow()
+
+# Select relevant variables
+glad_ED100K_selfreport <- glad_ED100K_selfreport %>%
+  select(ID,
+         sample,
+         an.1.diagnosed_suspected_eating_disorder,
+         an.1.atypical_anorexia_nervosa,
+         an.1.bingeeating_disorder,
+         an.1.bulimia_nervosa,
+         an.1.anorexia_nervosa,
+         an.1.atypical_binge_eating_disorder,
+         an.1.overeating,
+         an.1.compulsive_overeating,
+         an.1.atypical_bulimia_nervosa,
+         an.1.anorexia_nervosa_binge_purge
+         )
+```
+
+### Merge self-report data
+```{r merge selfreport data}
+selfreport_dat <- dplyr::full_join(glad_ED100K_selfreport,
+                                   mhd,
+                                   by = c("ID",
+                                          "sample")
+                                   )
+
+# Check
+selfreport_dat %>%
+  colnames()
+
+selfreport_dat %>%
+  nrow()
+```
+
+# Merge all data up to this point
+```{r merge all data up to this point}
+dat_with_selfreport <- dplyr::full_join(dat,
+                                        selfreport_dat,
+                                        by=c("ID",
+                                             "sample"
+                                             )
+                                        )
+
+# Check
+dat_with_selfreport %>%
+  colnames()
+
+dat_with_selfreport %>%
+  nrow()
+```
+
+# Frequency binge eating [COPING GLAD+NBR]
+One year = 52.1429 weeks
+One month = 4.34524 weeks 
+```{r Derive BE freq COPING}
+# Empty columns
+dat_with_selfreport$COPING_BE_freq_per_week <- NA
+
+##Convert factors to numeric
+dat_with_selfreport$COPING_binge_freq_per_yr <- as.numeric(dat_with_selfreport$be.binge_eating_episodes_experience.txt_cop_numeric)
+
+dat_with_selfreport$COPING_binge_freq_per_month <- as.numeric(dat_with_selfreport$be.binge_eating_enter_episodes.txt_cop_numeric)
+
+dat_with_selfreport$COPING_binge_freq_per_wk <- as.numeric(dat_with_selfreport$be.regularly_occurring_episodes_binge.txt_cop_numeric)
+
+# Calculate frequency per week
+dat_with_selfreport$COPING_BE_freq_per_week <- 
+  with(dat_with_selfreport,
+    case_when(
+      COPING_binge_freq_per_yr > 0 ~ round(COPING_binge_freq_per_yr/52.1429, digits = 2), #Episodes in one year
+      COPING_binge_freq_per_month > 0 ~ round(COPING_binge_freq_per_month/4.34524, digits = 2),  #Episodes in one month
+      COPING_binge_freq_per_wk > 0 ~ COPING_binge_freq_per_wk #Episodes in one week
+      )
+  )
+  
+#Summary
+freq(dat_with_selfreport$COPING_BE_freq_per_week)
+```
+
+# Frequency binge eating [GLAD]
+One year = 52.1429 weeks
+One month = 4.34524 weeks 
+```{r Derive BE freq GLAD}
+#Empty columns
+dat_with_selfreport$GLAD_BE_freq_per_week <- NA
+
+# Calculate frequency per week
+dat_with_selfreport$GLAD_BE_freq_per_week <- 
+ with(dat_with_selfreport,
+   case_when(
+     be.per_year_numeric > 0 ~ round(be.per_year_numeric/52.1429, digits = 2), # Episodes in one year
+     be.per_month_numeric > 0 ~ round(be.per_month_numeric/4.34524, digits = 2),  # Episodes in one month
+     be.per_week_numeric > 0 ~ be.per_week_numeric # Episodes in one week
+     )
+ )
+
+#Summary
+freq(dat_with_selfreport$GLAD_BE_freq_per_week)  
+```
+
+# Binge eating duration [COPING GLAD+NBR]
+Converting to smallest unit first gives you more accurate estimates
+One year = 365.25 days; One month = 30.4167 days
+```{r Derive BE duration COPING}
+# Empty column
+dat_with_selfreport$COPING_BE_duration_months <- NA
+
+# Change factor to numeric
+dat_with_selfreport$COPING_binge_duration_years <- as.numeric(dat_with_selfreport$be.experience_regularly_occurring_binge_cop_numeric)
+dat_with_selfreport$COPING_binge_duration_months <- as.numeric(dat_with_selfreport$be.experience_regularly_occurring_binge.1_cop_numeric)
+
+##Contains -77, need to change to NA
+dat_with_selfreport$COPING_binge_duration_years[dat_with_selfreport$COPING_binge_duration_years == -77] <- NA_real_
+dat_with_selfreport$COPING_binge_duration_months[dat_with_selfreport$COPING_binge_duration_months == -77] <- NA_real_
+
+
+# Sum years and months into months (first covert to days [i.e., smallest unit], then convert to months)
+dat_with_selfreport$COPING_BE_duration_months <- 
+  if_else(condition = is.na(dat_with_selfreport$COPING_BE_duration_months),
+         true = (
+           (dat_with_selfreport$COPING_binge_duration_years*365.25) + #Duration in years
+             (dat_with_selfreport$COPING_binge_duration_months*30.4167)  #Duration in months
+           ) / 30.4167, 
+        false = NA_real_,
+        missing = NA_real_)
+
+# Summary
+freq(dat_with_selfreport$COPING_BE_duration_months) 
+```
+
+# Binge eating duration [GLAD]
+
+Converting to smallest unit first gives you more accurate estimates
+One year = 365.25 days; One month = 30.4167 days
+```{r Derive BE duration GLAD}
+# Empty column
+dat_with_selfreport$GLAD_BE_duration_months <- NA
+
+## Contains values below 0, change to NA
+dat_with_selfreport$be.dur_years_numeric[dat_with_selfreport$be.dur_years_numeric < 0] <- NA_real_
+
+# Sum years and months into months (first covert to days [i.e., smallest unit], then convert to months)
+dat_with_selfreport$GLAD_BE_duration_months <- 
+  if_else(condition = is.na(dat_with_selfreport$GLAD_BE_duration_months),
+         true = (
+           (dat_with_selfreport$be.dur_years_numeric*365.25) + #Duration in years
+             (dat_with_selfreport$be.dur_months_numeric*30.4167)  #Duration in months
+           ) / 30.4167, 
+        false = NA_real_,
+        missing = NA_real_)
+
+# Summary
+freq(dat_with_selfreport$GLAD_BE_duration_months) 
+```
+# BINGE EATING PHENOTYPES
+## NARROWLY DEFINED Binge eating
+
+We plan to perform two GWASs for binge eating: one that includes all individuals that fulfil the criteria for narrowly defined binge eating, and one that includes all individuals that fulfil the criteria for broadly defined binge eating.
+
+Narrowly defined binge eating: All individuals who meet any of the following criteria will be coded as “BE_narrow = 1”:
+
+1. Eating an unusually large amount of food in an unusually short period of time with loss of control when doing so, and these episodes occurred on average at least once a week for at least three months (= DSM-5 frequency and duration criteria);
+
+2. Has received a clinical diagnosis of BN or BED via hospital or register records or a structured clinical interview;
+
+    a. If ANBP or OSFED/EDNOS is diagnosed, these individuals will only be included if symptom-level data confirm that they endorse the symptoms as described in item 1 of narrowly defined binge eating);
+
+3. Has a self-reported diagnosis of BN or BED, with specification that this has been confirmed by a healthcare professional;
+
+1. GLAD participants
+```{r Narrow BE GLAD algorithm}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      BE_narrow_GLAD =
+        if_else(
+          #GLAD
+        (  
+          # 1. Eating an unusually large amount of food in an unusually short period of time....
+          (
+            be.short_period_ate_regard == "Yes" &
+          
+          # with loss of control when doing so...
+          (
+              be.loss_control == "Slightly" | 
+              be.loss_control == "Somewhat" |
+              be.loss_control == "Very" |
+              be.loss_control == "Extremely"
+          ) &
+        # and these episodes occurred on average at least once a week for at least three months (= DSM-5 frequency and duration criteria);
+            (
+              GLAD_BE_duration_months >= 3 &
+                GLAD_BE_freq_per_week >= 1 
+            )
+          ) |
+
+         #   2. No clinical records in GLAD (yet)
+          
+          # 3. Has a self-reported diagnosis of BN or BED, with specification that this has been confirmed by a healthcare professional (GLAD);
+          (
+           mhd.bn_numeric == 1 |
+             mhd.bed_numeric == 1
+          ) 
+        ),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+# Check frequency 
+dat_with_selfreport %>%
+  freq(BE_narrow_GLAD)
+
+
+# Double check which cohort they are from (should just be GLAD)
+dat_with_selfreport %>%
+  filter(BE_narrow_GLAD == 1)%>%
+  group_by(sample) %>%
+  count()
+
+```
+
+2. COPING (GLAD+NBR) participants
+```{r Narrow BE COPING algorithm}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      BE_narrow_COPING =
+        if_else(
+         #COPING: NBR/GLAD
+        (   
+          #1. Eating an unusually large amount of food in an unusually short period of time....
+          (
+            be.ate_regard_short_period_cop == "Yes" &
+          
+          #with loss of control when doing so...
+          (
+              be.regularly_occurring_episodes_binge_cop == "Slightly" |
+              be.regularly_occurring_episodes_binge_cop == "Somewhat" |
+              be.regularly_occurring_episodes_binge_cop == "Very" |
+              be.regularly_occurring_episodes_binge_cop == "Extremely"
+          ) &
+        #and these episodes occurred on average at least once a week for at least three months (= DSM-5 frequency and duration criteria);
+            (
+              COPING_BE_duration_months >= 3 &
+                COPING_binge_freq_per_wk >= 1 
+            )
+          ) |
+    
+          #3. Has a self-reported diagnosis of BN or BED, with specification that this has been confirmed by a healthcare professional (COPING);
+          (
+           mhd.bn_cop_numeric ==1 |
+             mhd.bed_cop_numeric == 1
+          )
+        ),
+         true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+     
+#Check frequency 
+dat_with_selfreport %>%
+  freq(BE_narrow_COPING)
+
+
+# Double check which cohort they are from (can be GLAD and NBR)
+dat_with_selfreport %>%
+  filter(BE_narrow_COPING == 1)%>%
+  group_by(sample) %>%
+  count()     
+
+```
+
+Identify those who were classed as cases in COPING GLAD only, GLAD only, or both
+```{r Identify Narrow BE cases in GLAD, COPING GLAD, NBR}
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    cases_narrow_BE =
+           case_when(
+             BE_narrow_COPING == 1 &
+               BE_narrow_GLAD == 1 ~ "Both",
+             BE_narrow_COPING == 1 &
+               (BE_narrow_GLAD == 0 |
+               is.na(BE_narrow_GLAD)) ~ "GLAD COPING only",
+             BE_narrow_GLAD == 1 &
+               (BE_narrow_COPING == 0 |
+               is.na(BE_narrow_COPING)) ~ "GLAD only"
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(cases_narrow_BE)
+
+# Filter by GLAD COPING (see how many are NBR participants) (NB: GLAD COPING only  will be made up of people who took part in NBR [coping_nbr], and people who took part in GLAD and COPING GLAD [glad plus NA]) 
+
+dat_with_selfreport %>%
+  filter(cases_narrow_BE == "GLAD COPING only") %>%
+  group_by(sample) %>%
+  count()
+```
+
+Count cases - narrow BE
+```{r Count total cases Narrow BE}
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    BE_narrow =
+           case_when(
+             BE_narrow_COPING == 1 |
+             BE_narrow_GLAD == 1 ~ 1
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(BE_narrow)
+
+dat_with_selfreport %>%
+  filter(BE_narrow == 1) %>%
+  count(sample)
+
+```
+
+## BROADLY DEFINED binge eating
+
+All individuals who meet any of the following criteria and will be coded as “BE_broad = 1”:
+
+1.	Eating an unusually large amount of food in an unusually short period of time with loss of control when doing so. Frequency and duration criteria are not required.  
+
+2.	If binge eating (BE) is assessed in a single question like: “Have you ever experienced binge eating?” and is endorsed, they will be considered to have BE and be included in the primary BE GWAS. If the question combines several descriptors such as “Have you ever experienced binge eating OR other terms like psychological overeating, compulsive eating, emotional eating, etc.”), it should not be used for the primary BE GWAS but can be used for PRS analyses.
+
+3.	Has a self-reported diagnosis of BN or BED (specification that this has been confirmed by a healthcare professional is not required for this definition);
+  a.	If ANBP or OSFED/EDNOS is diagnosed, these individuals will only be included if they explicitly state ‘subthreshold BN’ or ‘subthreshold BED’.
+  
+FOR POLYGENIC RISK SCORE ANALYSES:
+***Question in GLAD ED100K is phrased as 'overeating or binge eating' so the data of anyone who endorses this will be included in PRS but not primary analysis
+***Question in COPING follow up is: 'regular episodes of overeating or eating binges..." so same as above
+
+BE_broad in GLAD
+```{r Broad BE GLAD algorithm}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      BE_broad_GLAD =
+        if_else(
+          #GLAD
+        (  
+          #1. Eating an unusually large amount of food in an unusually short period of time....
+          (
+             be.short_period_ate_regard == "Yes" &
+          
+          # with loss of control when doing so.
+          (
+             be.loss_control == "Slightly" | 
+              be.loss_control == "Somewhat" |
+              be.loss_control == "Very" |
+              be.loss_control == "Extremely"
+          ) 
+          ) |
+
+           # 3. Has a self-reported diagnosis of BN or BED (specification that this has been confirmed by a healthcare professional is not required for this definition);
+       
+             # MHD:
+              (
+           mhd.bn_numeric == 1 |
+           mhd.bed_numeric == 1 |
+           mhd.atypical_bed_numeric == 1 |
+           mhd.atypical_bn_numeric == 1 |  
+          
+        # ED100K screener (GLAD only, optional): "Which of the following eating disorders did you/do you currently have? If you have not received a diagnosis and are not sure which of the following may apply to you please select Don't know'. Only those with a diagnosis should have selected an option.
+             
+           an.1.bulimia_nervosa == "Bulimia nervosa" |
+           an.1.atypical_bulimia_nervosa == "Atypical bulimia nervosa" |
+           an.1.bingeeating_disorder == "Binge-eating disorder" |
+           an.1.atypical_binge_eating_disorder == "Atypical BED" 
+          
+           ) 
+        ),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+# Check frequency 
+dat_with_selfreport %>%
+  freq(BE_broad_GLAD)
+
+# Check which cohort they are from  (should be GLAD only)
+dat_with_selfreport %>%
+  filter(BE_broad_GLAD == 1) %>%
+  group_by(sample) %>%
+  count()
+
+```
+            
+BE_broad in COPING (GLAD+NBR)
+```{r Broad BE COPING algorithm}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      BE_broad_COPING =
+        if_else(
+        (
+           # COPING: NBR/GLAD
+          # 1. Eating an unusually large amount of food in an unusually short period of time....
+          (
+            be.ate_regard_short_period_cop == "Yes" &
+          
+          # with loss of control when doing so...
+          (
+            be.regularly_occurring_episodes_binge_cop == "Slightly" |
+              be.regularly_occurring_episodes_binge_cop == "Somewhat" |
+              be.regularly_occurring_episodes_binge_cop == "Very" |
+              be.regularly_occurring_episodes_binge_cop == "Extremely"
+          ) 
+          ) |
+          
+          # 3. Has a self-reported diagnosis of BN or BED (specification that this has been confirmed by a healthcare professional is not required for this definition);
+          (
+           mhd.bn_cop_numeric == 1 |
+           mhd.bed_cop_numeric == 1 |
+           mhd.atypical_bed_cop_numeric == 1 |
+           mhd.atypical_bn_cop_numeric == 1  
+           
+          )
+        ),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+# Check frequency 
+dat_with_selfreport %>%
+  freq(BE_broad_COPING)
+
+# Check which cohort they are from  (can be GLAD COPING or NBR)
+dat_with_selfreport %>%
+  filter(BE_broad_COPING == 1) %>%
+  group_by(sample) %>%
+  count()
+```
+  
+Identify those who were classed as cases in COPING GLAD only, GLAD only, or both
+```{r Identify Broad BE cases in GLAD, COPING GLAD, NBR}
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    cases_broad_BE =
+           case_when(
+             BE_broad_COPING == 1 &
+               BE_broad_GLAD == 1 ~ "Both",
+             BE_broad_COPING == 1 &
+               (BE_broad_GLAD == 0 |
+               is.na(BE_broad_GLAD)) ~ "GLAD COPING only",
+             BE_broad_GLAD == 1 &
+               (BE_broad_COPING == 0 |
+               is.na(BE_broad_COPING)) ~ "GLAD only"
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(cases_broad_BE)
+
+
+# Filter by GLAD COPING (see how many are NBR participants). Then add up remainder = COPING GLAD only
+dat_with_selfreport %>%
+  filter(cases_broad_BE == "GLAD COPING only") %>%
+  group_by(sample) %>%
+  count()
+```
+
+Count cases - broad BE
+```{r Count total Broad BE cases}
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    BE_broad =
+           case_when(
+             BE_narrow_COPING == 1 |
+             BE_narrow_GLAD == 1 |
+             BE_broad_COPING == 1 |
+             BE_broad_GLAD == 1 ~ 1
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(BE_broad)
+
+dat_with_selfreport %>%
+  filter(BE_broad == 1) %>%
+  count(sample)
+```
+
+# ANOREXIA PHENOTYPES
+## Anorexia nervosa binge-eating/purging subtype: 
+
+Any individual who meets the following criteria will be coded as “ANBP = 1”:
+
+    • Has received a clinical diagnosis of anorexia nervosa binge-eating/purging subtype via hospital or register records or structured clinical interviews, or online questionnaires based on standardized criteria (DSM III-R, DSM-IV, DSM 5, ICD-9, or ICD-10); 
+
+    • Has a self-reported diagnosis of anorexia nervosa binge-eating/purging (specification that this has been confirmed by a healthcare professional is not required for this definition)
+
+1. GLAD participants
+```{r GLAD ANBP PGC algorithm}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      ANBP_GLAD =
+        if_else(
+          # GLAD
+        (  
+          # Has received a clinical diagnosis of anorexia nervosa binge-eating/purging subtype via hospital or register records or structured clinical interviews, or online questionnaires based on standardized criteria (DSM III-R, DSM-IV, DSM 5, ICD-9, or ICD-10); 
+          (
+            ed.DSM5_AN_binge_purge_binary_numeric == 1 |
+              
+          # (from GLAD ED100K self-report) Has a self-reported diagnosis of anorexia nervosa binge-eating/purging (specification that this has been confirmed by a healthcare professional is not required for this definition)
+          
+          an.1.anorexia_nervosa_binge_purge == "Anorexia binge-eating/purging"
+        )),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+#Check frequency 
+dat_with_selfreport %>%
+  freq(ANBP_GLAD)
+
+
+# Double check which cohort they are from
+dat_with_selfreport %>%
+  filter(ANBP_GLAD == 1)%>%
+  group_by(sample) %>%
+  count()
+
+```
+
+2. COPING participants (GLAD + NBR)
+```{r COPING ANBP PGC algorithm}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      ANBP_COPING =
+        if_else(
+          # GLAD
+        (  
+          # Has received a clinical diagnosis of anorexia nervosa binge-eating/purging subtype via hospital or register records or structured clinical interviews, or online ques tionnaires based on standardized criteria (DSM III-R, DSM-IV, DSM 5, ICD-9, or ICD-10); 
+          (
+            ed.DSM5_AN_binge_purge_binary_numeric_cop == 1 
+          )
+            # No self-reported ANBP option in COPING
+        ),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+#Check frequency 
+dat_with_selfreport %>%
+  freq(ANBP_COPING)
+
+
+#Double check which cohort they are from
+dat_with_selfreport %>%
+  filter(ANBP_COPING == 1)%>%
+  group_by(sample) %>%
+  count()
+```
+
+ANBP - Identify those who were classed as cases in COPING GLAD only, GLAD only, or both
+```{r ANBP PGC identify cases from GLAD, COPING GLAD, NBR}
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    cases_ANBP =
+           case_when(
+             ANBP_COPING == 1 &
+               ANBP_GLAD == 1 ~ "Both",
+             ANBP_COPING == 1 &
+               (ANBP_GLAD == 0 |
+               is.na(ANBP_GLAD)) ~ "GLAD COPING only",
+             ANBP_GLAD == 1 &
+               (ANBP_COPING == 0 |
+               is.na(ANBP_COPING)) ~ "GLAD only"
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(cases_ANBP)
+
+
+#Filter by GLAD COPING (see how many are NBR participants by taking the n of coping_nbr away from the n of "GLAD COPING only")
+dat_with_selfreport %>%
+  filter(cases_ANBP == "GLAD COPING only") %>%
+  group_by(sample) %>%
+  count()
+```
+
+Count cases - ANBP
+```{r Count ANBP PGC cases}
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    ANBP =
+           case_when(
+             ANBP_COPING == 1 |
+            ANBP_GLAD == 1 ~ 1
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(ANBP)
+```
+
+## Anorexia nervosa restricting subtype: 
+Any individual who meets the following criteria will be coded as “ANR = 1”:
+
+    • Has received a clinical diagnosis of anorexia nervosa restricting subtype via hospital or register records or structured clinical interviews, or online questionnaires based on standardized criteria (DSM III-R, DSM-IV, DSM 5, ICD-9, or ICD-10); 
+    NB: After discussions with the PGC, we have decided on a more lenient BMI threshold of under 20 (rather than 18.55) for ANR.
+    
+    • Has a self-reported diagnosis of anorexia nervosa restricting (specification that this has been confirmed by a healthcare professional is not required for this definition)
+
+1. GLAD participants
+```{r ANR algorithm PGC GLAD}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      ANR_GLAD =
+        if_else(
+          # GLAD
+        (  
+          # Has received a clinical diagnosis of anorexia nervosa restricting via hospital or register records or structured clinical interviews, or online questionnaires based on standardized criteria (DSM III-R, DSM-IV, DSM 5, ICD-9, or ICD-10); 
+          (
+            ed.DSM5_AN_restricting_bmi_20_binary_numeric == 1 
+          )
+            # No self-reported ANR option/instances in GLAD
+           ),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+# Check frequency 
+dat_with_selfreport %>%
+  freq(ANR_GLAD)
+
+
+# Double check which cohort they are from
+dat_with_selfreport %>%
+  filter(ANR_GLAD == 1)%>%
+  group_by(sample) %>%
+  count()
+```
+
+2. COPING participants (GLAD + NBR)
+```{r ANR algorithm PGC COPING}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      ANR_COPING =
+        if_else(
+          #GLAD
+        (  
+          #Has received a clinical diagnosis of anorexia nervosa restricting subtype via hospital or register records or structured clinical interviews, or online questionnaires based on standardized criteria (DSM III-R, DSM-IV, DSM 5, ICD-9, or ICD-10); 
+          (
+            ed.DSM5_AN_restricting_bmi_20_binary_numeric_cop == 1 
+          )
+            #No self-reported ANR option in COPING
+        ),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+# Check frequency 
+dat_with_selfreport %>%
+  freq(ANR_COPING)
+
+
+# Double check which cohort they are from
+dat_with_selfreport %>%
+  filter(ANR_COPING == 1)%>%
+  group_by(sample) %>%
+  count()
+```
+
+ANR- Identify those who were classed as cases in COPING GLAD only, GLAD only, or both
+```{r ANR identify cases GLAD, COPING GLAD, NBR}
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    cases_ANR =
+           case_when(
+             ANR_COPING == 1 &
+               ANR_GLAD == 1 ~ "Both",
+             ANR_COPING == 1 &
+               (ANR_GLAD == 0 |
+               is.na(ANR_GLAD)) ~ "GLAD COPING only",
+             ANR_GLAD == 1 &
+               (ANR_COPING == 0 |
+               is.na(ANR_COPING)) ~ "GLAD only"
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(cases_ANR)
+
+# Filter by GLAD COPING (see how many are NBR participants)
+dat_with_selfreport %>%
+  filter(cases_ANR == "GLAD COPING only") %>%
+  group_by(sample) %>%
+  count()
+```
+
+Count cases - ANR
+```{r Count cases ANR PGC}
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    ANR =
+           case_when(
+             ANR_COPING == 1 |
+            ANR_GLAD == 1 ~ 1
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(ANR)
+```
+
+## Anorexia nervosa (no subtype) 
+Has received a clinical diagnosis of anorexia nervosa via hospital or register records or structured clinical interviews, or online questionnaires based on standardized criteria (DSM III-R, DSM-IV, DSM 5, ICD-8, ICD-9, or ICD-10);
+
+Has a self-reported diagnosis of anorexia nervosa (specification that this has been confirmed by a healthcare professional is not required for this definition)
+
+1. GLAD participants
+```{r AN no subtype algorithm PGC GLAD}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      AN_GLAD =
+        if_else(
+          # GLAD
+        (  
+          # Has received a clinical diagnosis of anorexia nervosa via hospital or register records or structured clinical interviews, or online questionnaires based on standardized criteria (DSM III-R, DSM-IV, DSM 5, ICD-8, ICD-9, or ICD-10);
+
+          (
+            ed.DSM5_AN_binary_numeric == 1  |
+          
+            # Has a self-reported diagnosis of anorexia nervosa (specification that this has been confirmed by a healthcare professional is not required for this definition)
+           
+          mhd.an_numeric == 1 | # MHD self-report
+          an.1.anorexia_nervosa == "Anorexia nervosa"  | # Self-report in GLAD optional ED100K
+          
+          # Fulfills criteria for ANBP or ANR
+          ANBP_GLAD == 1 |
+          ANR_GLAD == 1
+           )),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+# Check frequency 
+dat_with_selfreport %>%
+  freq(AN_GLAD)
+
+
+#Double check which cohort they are from
+dat_with_selfreport %>%
+  filter(ANR_GLAD == 1)%>%
+  group_by(sample) %>%
+  count()
+
+```
+
+2. GLAD COPING and NBR participants
+```{r AN no subtype algorithm PGC GLAD COPING and NBR}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      AN_COPING =
+        if_else(
+          # GLAD
+        (  
+          # Has received a clinical diagnosis of anorexia nervosa via hospital or register records or structured clinical interviews, or online questionnaires based on standardized criteria (DSM III-R, DSM-IV, DSM 5, ICD-8, ICD-9, or ICD-10);
+
+          (
+            ed.DSM5_AN_binary_numeric_cop == 1  |
+          
+            # Has a self-reported diagnosis of anorexia nervosa (specification that this has been confirmed by a healthcare professional is not required for this definition)
+           
+          mhd.an_cop_numeric == 1 | # MHD self-report
+          
+          # Fulfills criteria for ANBP or ANR
+          ANBP_COPING == 1 |
+          ANR_COPING == 1
+
+           )),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+#Check frequency 
+dat_with_selfreport %>%
+  freq(AN_COPING)
+
+
+#Double check which cohort they are from
+dat_with_selfreport %>%
+  filter(AN_COPING == 1)%>%
+  group_by(sample) %>%
+  count()
+
+```
+
+AN - Identify those who were classed as cases in COPING GLAD only, GLAD only, or both
+```{r AN identify cases in GLAD, COPING GLAD, NBR}
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    cases_AN =
+           case_when(
+             AN_COPING == 1 &
+               AN_GLAD == 1 ~ "Both",
+             AN_COPING == 1 &
+               (AN_GLAD == 0 |
+               is.na(AN_GLAD)) ~ "GLAD COPING only",
+             AN_GLAD == 1 &
+               (AN_COPING == 0 |
+               is.na(AN_COPING)) ~ "GLAD only"
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(cases_AN)
+
+
+# Filter by GLAD COPING (see how many are NBR participants)
+dat_with_selfreport %>%
+  filter(cases_AN == "GLAD COPING only") %>%
+  group_by(sample) %>%
+  count()
+```
+
+Count cases - AN (no subtype)
+```{r Count cases AN PGC}
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    AN =
+        case_when(
+             AN_COPING == 1 |
+            AN_GLAD == 1 ~ 1
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(AN)
+```
+
+# Additional cases: Atypical anorexia nervosa module
+Can also identify cases via people who filled out the AAN questionnaire but actually met the AN weight threshold (i.e., BMI of or below 18.55)
+## First, work out AAN BMI (COPING GLAD & NBR)
+Amount of weight lost (COPING GLAD & NBR)
+```{r AAN amount of weight lost COPING}
+# Rename / convert to numeric
+dat_with_selfreport$aan.weight_lost_lbs_cop <- as.numeric(dat_with_selfreport$aan.stone_pounds_lose_note_cop_numeric)
+dat_with_selfreport$aan.weight_lost_kg_cop <- dat_with_selfreport$aan.stone_pounds_lose_note.1_cop_numeric
+
+# Convert lbs to kg
+dat_with_selfreport$aan.weight_lost_kg_total_cop <- 
+  if_else(condition = is.na(dat_with_selfreport$aan.weight_lost_kg_cop),
+         true = (
+           dat_with_selfreport$aan.weight_lost_lbs_cop/2.205), # Convert answers in lbs to kg
+          false = dat_with_selfreport$aan.weight_lost_kg_cop,
+        missing = NA_real_)
+
+# Check
+freq(dat_with_selfreport$aan.weight_lost_kg_total_cop)
+
+# Get rid of implausible values, i.e., values below 0
+dat_with_selfreport$aan.weight_lost_kg_total_cop[dat_with_selfreport$aan.weight_lost_kg_total_cop < 0 ] <- NA_real_
+
+# Check again
+freq(dat_with_selfreport$aan.weight_lost_kg_total_cop)
+```
+
+Weight before weight loss (COPING GLAD & NBR)
+```{r AAN weight before weight loss COPING}
+# Rename / convert to numeric
+dat_with_selfreport$aan.weight_prior_lbs_cop <- dat_with_selfreport$aan.weigh_prior_stone_pounds_cop
+dat_with_selfreport$aan.weight_prior_kg_cop <- as.numeric(dat_with_selfreport$aan.weigh_prior_stone_pounds.1_cop_numeric)
+
+# Convert lbs to kg
+dat_with_selfreport$aan.weight_prior_kg_total_cop <- 
+  if_else(condition = is.na(dat_with_selfreport$aan.weight_prior_kg_cop),
+         true = (
+           dat_with_selfreport$aan.weight_prior_lbs_cop/2.205), #Convert answers in lbs to kg
+        false = dat_with_selfreport$aan.weight_prior_kg_cop,
+        missing = NA_real_)
+
+
+# Check
+freq(dat_with_selfreport$aan.weight_prior_kg_total_cop)
+
+# Get rid of implausible values, i.e., values below 0
+dat_with_selfreport$aan.weight_prior_kg_total_cop[dat_with_selfreport$aan.weight_prior_kg_total_cop < 0 ] <- NA_real_
+
+# Check again
+freq(dat_with_selfreport$aan.weight_prior_kg_total_cop)
+
+# Get rid of implausible values, i.e., values below 0
+dat_with_selfreport$aan.weight_prior_kg_total_cop[dat_with_selfreport$aan.weight_prior_kg_total_cop < 20 ] <- NA_real_
+dat_with_selfreport$aan.weight_prior_kg_total_cop[dat_with_selfreport$aan.weight_prior_kg_total_cop > 635 ] <- NA_real_ #Heaviest person in world is 635kg
+
+# Check again
+freq(dat_with_selfreport$aan.weight_prior_kg_total_cop)
+```
+
+Work out weight at period of significant weight loss (COPING GLAD & NBR)
+```{r AAN weight kg COPING}
+dat_with_selfreport$AAN_weight_kg_unc_cop <- dat_with_selfreport$aan.weight_prior_kg_total_cop - dat_with_selfreport$aan.weight_lost_kg_total_cop
+
+dat_with_selfreport %>%
+  freq(AAN_weight_kg_unc_cop)
+```
+
+Clean AAN weight (COPING GLAD & NBR)
+```{r Clean AAN weight kg COPING}
+# Weight outlier
+  # Define weight limits
+  low_weight_upper_limit = 150 
+  low_weight_lower_limit = 25
+  
+  # Identify number of outliers
+  length(
+    which(
+      dat_with_selfreport$AAN_weight_kg_unc_cop > low_weight_upper_limit |
+        dat_with_selfreport$AAN_weight_kg_unc_cop< low_weight_lower_limit
+    )
+  )
+  
+  # Remove weight outliers
+  dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      AAN_weight_kg_cleaned_cop =
+        if_else(
+          AAN_weight_kg_unc_cop > low_weight_upper_limit |
+            AAN_weight_kg_unc_cop < low_weight_lower_limit,
+          true = NA_real_,
+          false = AAN_weight_kg_unc_cop,
+          missing = NA_real_
+        )
+    )
+  
+  ##Check
+  dat_with_selfreport %>%
+    freq(AAN_weight_kg_cleaned_cop)
+```
+
+## AAN BMI calculations (COPING GLAD & NBR)
+Work out AAN BMI 
+NB: We do not ask about height at low weight in the AAN module. Therefore, to work out their BMI during AAN, we have to use their adult height. This is fine unless they had AAN before they were at adult height. We do not have age of onset of low weight in the AAN module to cross-check (otherwise would only look at people with age of onset above 12/13). Will just need to note this as a limitation.
+```{r AAN Derive BMI COPING}
+
+dat_with_selfreport$AAN_BMI_cop <- NA
+
+# Derived
+dat_with_selfreport$AAN_BMI_cop <- 
+  if_else(condition = is.na(dat_with_selfreport$AAN_BMI_cop), 
+         true = dat_with_selfreport$AAN_weight_kg_cleaned_cop/dat_with_selfreport$current_height_m_cop^2, # Derive from height and weight
+         false = NA_real_,
+         missing = NA_real_)
+
+# Summary
+summary(dat_with_selfreport$AAN_BMI_cop)
+freq(dat_with_selfreport$AAN_BMI_cop)
+
+# Define BMI limits
+ bmi_upper_limit = 91 # From lowest BMI cleaning script
+ bmi_lower_limit = 7 # From lowest BMI cleaning script
+
+# Identify number of outliers
+  length(
+    which(
+      dat_with_selfreport$AAN_BMI_cop > bmi_upper_limit |
+        dat_with_selfreport$AAN_BMI_cop < bmi_lower_limit
+    )
+  )
+  
+# Remove age outliers
+  dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      AAN_BMI_cop =
+        if_else(
+         dat_with_selfreport$AAN_BMI_cop > bmi_upper_limit |
+        dat_with_selfreport$AAN_BMI_cop < bmi_lower_limit,
+          true = NA_real_,
+          false = AAN_BMI_cop,
+          missing = NA_real_
+        )
+    )
+  
+# Inspect variable
+  dat_with_selfreport %>%
+    descr(
+      AAN_BMI_cop
+    )
+```
+
+## Work out AAN BMI (GLAD)
+Amount of weight lost (GLAD)
+```{r AAN amount of weight loss GLAD}
+# Rename / convert to numeric
+dat_with_selfreport$aan.weight_lost_lbs <- dat_with_selfreport$aan.stone_pounds_lose_note_numeric
+
+dat_with_selfreport$aan.weight_lost_kg <- dat_with_selfreport$aan.stone_pounds_lose_note.1_numeric
+
+# Convert lbs to kg
+dat_with_selfreport$aan.weight_lost_kg_total <- 
+  if_else(condition = is.na(dat_with_selfreport$aan.weight_lost_kg),
+         true = (
+           dat_with_selfreport$aan.weight_lost_lbs/2.205), # Convert lbs to kg
+        false = dat_with_selfreport$aan.weight_lost_kg,
+        missing = NA_real_)
+
+
+# Check
+freq(dat_with_selfreport$aan.weight_lost_kg_total)
+
+# Get rid of implausible values, i.e., values below 0
+dat_with_selfreport$aan.weight_lost_kg_total[dat_with_selfreport$aan.weight_lost_kg_total < 0 ] <- NA_real_
+
+# Check again
+freq(dat_with_selfreport$aan.weight_lost_kg_total)
+```
+
+Weight before weight loss (GLAD)
+```{r AAN weight before weight loss GLAD}
+# Rename / convert to numeric
+dat_with_selfreport$aan.weight_prior_lbs <- dat_with_selfreport$aan.weigh_prior_stone_pounds
+
+dat_with_selfreport$aan.weight_prior_kg <- as.numeric(dat_with_selfreport$aan.weigh_prior_stone_pounds.1_numeric)
+
+# Convert lbs to kg
+dat_with_selfreport$aan.weight_prior_kg_total <- 
+  if_else(condition = is.na(dat_with_selfreport$aan.weight_prior_kg),
+         true = (
+           dat_with_selfreport$aan.weight_prior_lbs/2.205), # Convert lbs to kg
+        false = dat_with_selfreport$aan.weight_prior_kg,
+        missing = NA_real_)
+
+
+# Check
+freq(dat_with_selfreport$aan.weight_prior_kg_total)
+
+# Get rid of implausible values, i.e., values below 0
+dat_with_selfreport$aan.weight_prior_kg_total[dat_with_selfreport$aan.weight_prior_kg_total < 0 ] <- NA_real_
+
+# Check again
+freq(dat_with_selfreport$aan.weight_prior_kg_total)
+
+# Get rid of implausible values
+dat_with_selfreport$aan.weight_prior_kg_total[dat_with_selfreport$aan.weight_prior_kg_total < 20 ] <- NA_real_
+
+dat_with_selfreport$aan.weight_prior_kg_total[dat_with_selfreport$aan.weight_prior_kg_total > 635 ] <- NA_real_ # Heaviest person in world is 635kg
+```
+
+Work out weight at period of significant weight loss (GLAD)
+```{r AAN weight kg GLAD}
+dat_with_selfreport$AAN_weight_kg_unc <- dat_with_selfreport$aan.weight_prior_kg_total - dat_with_selfreport$aan.weight_lost_kg_total
+
+dat_with_selfreport %>%
+  freq(AAN_weight_kg_unc)
+```
+
+Clean AAN weight (GLAD)
+```{r Clean AAN weight kg GLAD}
+# Weight outlier
+  # Define weight limits 
+  low_weight_upper_limit = 150 
+  low_weight_lower_limit = 25
+  
+  # Identify number of outliers
+  length(
+    which(
+      dat_with_selfreport$AAN_weight_kg_unc > low_weight_upper_limit |
+        dat_with_selfreport$AAN_weight_kg_unc< low_weight_lower_limit
+    )
+  )
+  
+  # Remove weight outliers
+  dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      AAN_weight_kg_cleaned =
+        if_else(
+          AAN_weight_kg_unc > low_weight_upper_limit |
+            AAN_weight_kg_unc < low_weight_lower_limit,
+          true = NA_real_,
+          false = AAN_weight_kg_unc,
+          missing = NA_real_
+        )
+    )
+  
+  # Check
+  dat_with_selfreport %>%
+    freq(AAN_weight_kg_cleaned)
+```
+
+Work out AAN BMI (GLAD)
+```{r AAN BMI GLAD}
+dat_with_selfreport$AAN_BMI <- NA
+
+# Derived
+dat_with_selfreport$AAN_BMI <- 
+  if_else(condition = is.na(dat_with_selfreport$AAN_BMI), 
+         true = dat_with_selfreport$AAN_weight_kg_cleaned/dat_with_selfreport$current_height_m^2, # Derive from height and weight
+         false = NA_real_,
+         missing = NA_real_)
+
+# Summary
+summary(dat_with_selfreport$AAN_BMI)
+freq(dat_with_selfreport$AAN_BMI)
+
+# Clean 
+# Define BMI limits
+ bmi_upper_limit = 91 # From lowest BMI cleaning script
+ bmi_lower_limit = 7 # From lowest BMI cleaning script
+
+# Identify number of outliers
+  length(
+    which(
+      dat_with_selfreport$AAN_BMI > bmi_upper_limit |
+        dat_with_selfreport$AAN_BMI < bmi_lower_limit
+    )
+  )
+  
+# Remove age outliers
+  dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      AAN_BMI =
+        if_else(
+         dat_with_selfreport$AAN_BMI > bmi_upper_limit |
+        dat_with_selfreport$AAN_BMI < bmi_lower_limit,
+          true = NA_real_,
+          false = AAN_BMI,
+          missing = NA_real_
+        )
+    )
+  
+# Inspect variable
+  dat_with_selfreport %>%
+    descr(
+      AAN_BMI
+    )
+```
+
+## AAN cases
+### BMI of 18.5 or less [GLAD]
+All of the criteria for anorexia nervosa are met, except that despite significant weight loss, the individual’s weight is within or above the normal range (BMI of 20 or above)
+```{r AAN GLAD algorithm low BMI}
+#Atypical anorexia nervosa numeric variable
+dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_numeric <- 
+  with(dat_with_selfreport,
+  dplyr::if_else(
+    
+# BMI less than 18.5
+  
+        (AAN_BMI <= 18.55 &
+         
+        # Afraid of gaining weight 
+        (aan.1.gain_weight_afraid_fat == "Somewhat afraid" | 
+         aan.1.gain_weight_afraid_fat == "Very afraid" |
+         aan.1.gain_weight_afraid_fat == "Extremely afraid") &
+ 
+         # Self-worth dependent on body shape or weight
+        (
+          ( aan.1.not_at_all_dependentcompletely_dependent == "3" | 
+            aan.1.not_at_all_dependentcompletely_dependent == "4" |
+            aan.1.not_at_all_dependentcompletely_dependent == "5" |
+            aan.1.not_at_all_dependentcompletely_dependent == "Completely Dependent") | 
+
+            # Feels fat even at low weight
+          (aan.1.feel_fat_period_significant == "Somewhat" | 
+           aan.1.feel_fat_period_significant == "Very" |
+            aan.1.feel_fat_period_significant == "Extremely") |
+  
+           # No perception of negative consequences of low weight
+          aan.1.health_negative_consequences_significant == "Not at all" |
+  
+         # Perceived body parts to be larger than they were
+        (aan.1.people_thought_larger_parts == "Somewhat" | 
+         aan.1.people_thought_larger_parts == "Very much")
+        )
+        ),
+    true = 1,
+    false = 0,
+    missing = NA_real_
+ )
+)
+  
+# Recode numeric to factor
+dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary <-
+  recode_factor(dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_numeric,
+                "0" = "No DSM-5 atypical AN BMI less than 18.5",
+                "1" = "DSM-5 Atypical AN BMI less than 18.5")
+
+# Summary
+freq(dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary)
+```
+
+GLAD AAN Low BMI Count cases
+```{r GLAD AAN low BMI PGC algorithm}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      AAN_LOWBMI_GLAD =
+        if_else(
+          #GLAD
+        (  
+          (
+            ed.DSM5_AN_atypical_low_BMI_binary == 1 
+          )
+        ),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+# Check frequency 
+dat_with_selfreport %>%
+  freq(AAN_LOWBMI_GLAD)
+
+# Double check which cohort they are from
+dat_with_selfreport %>%
+  filter(AAN_LOWBMI_GLAD == 1)%>%
+  group_by(sample) %>%
+  count()
+```
+
+### BMI of 18.5 or less [COPING GLAD and NBR]
+All of the criteria for anorexia nervosa are met, except that despite significant weight loss, the individual’s weight is within or above the normal range (BMI of 20 or above)
+```{r AAN COPING algorithm low BMI}
+#Atypical anorexia nervosa numeric variable
+dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_numeric_cop <- 
+  with(dat_with_selfreport,
+  dplyr::if_else(
+    
+#BMI less than 18.5
+  
+       (AAN_BMI_cop <= 18.55 &
+        
+         # Afraid of gaining weight 
+        (aan.1.gain_weight_afraid_fat_cop == "Somewhat afraid" | 
+         aan.1.gain_weight_afraid_fat_cop == "Very afraid" |
+         aan.1.gain_weight_afraid_fat_cop == "Extremely afraid") &
+ 
+         # Self-worth dependent on body shape or weight
+        ((aan.1.not_at_all_dependentcompletely_dependent_cop == "3" | 
+          aan.1.not_at_all_dependentcompletely_dependent_cop == "4" |
+          aan.1.not_at_all_dependentcompletely_dependent_cop == "5" |
+          aan.1.not_at_all_dependentcompletely_dependent_cop == "Completely Dependent") | 
+
+            # Feels fat even at low weight
+        ( aan.1.feel_fat_period_significant_cop == "Somewhat" | 
+         aan.1.feel_fat_period_significant_cop == "Very" |
+          aan.1.feel_fat_period_significant_cop == "Extremely") |
+  
+           # No perception of negative consequences of low weight
+       aan.1.health_negative_consequences_significant_cop == "Not at all" |
+  
+         # Perceived body parts to be larger than they were
+        ( aan.1.people_thought_larger_parts_cop == "Somewhat" | 
+          aan.1.people_thought_larger_parts_cop == "Very much")
+       )
+      ),
+    true = 1,
+    false = 0,
+    missing = NA_real_
+ )
+)
+  
+#Recode numeric to factor
+dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_cop <-
+  recode_factor(dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_numeric_cop,
+                "0" = "No DSM-5 atypical AN BMI less than 18.5",
+                "1" = "DSM-5 Atypical AN BMI less than 18.5")
+
+#Summary
+freq(dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_cop)
+
+```
+
+COPING participants (GLAD + NBR) Count AAN low BMI cases 
+```{r COPING AAN LOW BMI PGC algorithm}
+dat_with_selfreport <- dat_with_selfreport %>%
+    mutate(
+      AAN_LOWBMI_COPING =
+        if_else(
+          # COPING
+        (
+         dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_numeric_cop == 1 
+        ),
+      true = 1,
+          false = 0,
+          missing = NA_real_
+        )
+    )
+
+# Check frequency 
+dat_with_selfreport %>%
+  freq(AAN_LOWBMI_COPING)
+
+# Double check which cohort they are from
+dat_with_selfreport %>%
+  filter(AAN_LOWBMI_COPING == 1)%>%
+  group_by(sample) %>%
+  count()
+```
+
+AAN LOW BMI - Identify those who were classed as cases in COPING GLAD only, GLAD only, or both
+```{r AAN LOW BMI PGC identify cases from GLAD, COPING GLAD, NBR}
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    cases_AAN_LOWBMI =
+           case_when(
+             AAN_LOWBMI_COPING == 1 &
+               AAN_LOWBMI_GLAD == 1 ~ "Both",
+             AAN_LOWBMI_COPING == 1 &
+               (AAN_LOWBMI_GLAD == 0 |
+               is.na(AAN_LOWBMI_GLAD)) ~ "GLAD COPING only",
+             AAN_LOWBMI_GLAD == 1 &
+               (AAN_LOWBMI_COPING == 0 |
+               is.na(AAN_LOWBMI_COPING)) ~ "GLAD only"
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(cases_AAN_LOWBMI)
+
+
+# Filter by GLAD COPING (see how many are NBR participants)
+dat_with_selfreport %>%
+  filter(cases_AAN_LOWBMI == "GLAD COPING only") %>%
+  group_by(sample) %>%
+  count()
+```
+
+Count total additional cases - AAN LOW BMI
+```{r Count AAN LOW BMI PGC cases}
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    AAN_LOW_BMI =
+           case_when(
+             AAN_LOWBMI_COPING == 1 |
+             AAN_LOWBMI_GLAD == 1 ~ 1
+            )
+  )
+
+dat_with_selfreport %>%
+  freq(AAN_LOW_BMI)
+```
+
+### Check number of overall AN cases for the PGC GWAS [incl. additional cases from AAN module]
+```{r Number of overall AN cases for PGC GWAS}
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(AN_CASE_GWAS =
+           case_when(AN_COPING == 1 |
+                     AN_GLAD == 1 |
+                     ANBP_GLAD == 1 |
+                     ANBP_COPING == 1 |
+                     ANR_GLAD == 1 |
+                     ANR_COPING == 1 |
+                     AAN_LOWBMI_COPING == 1 |
+                     AAN_LOWBMI_GLAD == 1 ~ 1
+             
+           )
+  )
+
+dat_with_selfreport %>%
+  freq(AN_CASE_GWAS)
+
+dat_with_selfreport %>%
+  filter(AN_CASE_GWAS == 1) %>%
+  count(sample)
+```
+
+#### Checking how many people with narrow or broad BE also have AN
+```{r Crossover BE with AN}
+dat_with_selfreport %>%
+  group_by(BE_broad) %>%
+  count(AN_CASE_GWAS)
+
+dat_with_selfreport %>%
+  group_by(BE_narrow) %>%
+  count(AN_CASE_GWAS)
+```
+
+# Exclusions 
+The following are people who can not be included as a case OR a control. Only need to test in COPING (NBR, specifically) as only people from these cohorts are eligible to be controls. Cases are identified with the above code.
+
+1. AN (no subtype) BMI ABOVE 18.5 
+2. AAN BMI above 18.5 
+
+## Atypical anorexia nervosa with BMI over 18.55 [COPING]
+All of the criteria for anorexia nervosa are met, except that despite significant weight loss, the individual’s weight is within or above the normal range (BMI of 18.5 or above)
+```{r AAN COPING algorithm high BMI}
+#Atypical anorexia nervosa numeric variable
+dat_with_selfreport$ed.DSM5_AN_atypical_high_BMI_binary_numeric_cop <- 
+  with(dat_with_selfreport,
+  dplyr::if_else(
+    
+#Lowest BMI greater than 18.5
+  
+       AAN_BMI_cop > 18.55 &
+        
+         #Afraid of gaining weight 
+        (aan.1.gain_weight_afraid_fat_cop == "Somewhat afraid" | 
+         aan.1.gain_weight_afraid_fat_cop == "Very afraid" |
+         aan.1.gain_weight_afraid_fat_cop == "Extremely afraid") &
+ 
+         #Self-worth dependent on body shape or weight
+        ((aan.1.not_at_all_dependentcompletely_dependent_cop == "3" | 
+          aan.1.not_at_all_dependentcompletely_dependent_cop == "4" |
+          aan.1.not_at_all_dependentcompletely_dependent_cop == "5" |
+          aan.1.not_at_all_dependentcompletely_dependent_cop == "Completely dependent") | 
+
+            #Feels fat even at low weight
+        ( aan.1.feel_fat_period_significant_cop == "Somewhat" | 
+         aan.1.feel_fat_period_significant_cop == "Very" |
+          aan.1.feel_fat_period_significant_cop == "Extremely") |
+  
+           #No perception of negative consequences of low weight
+       aan.1.health_negative_consequences_significant_cop == "Not at all" |
+  
+         
+         #Perceived body parts to be larger than they were
+        ( aan.1.people_thought_larger_parts_cop == "Somewhat" | 
+          aan.1.people_thought_larger_parts_cop == "Very much")),
+    true = 1,
+    false = 0,
+    missing = NA_real_
+ )
+)
+  
+#Recode numeric to factor
+dat_with_selfreport$ed.DSM5_AN_atypical_high_BMI_binary_cop <-
+  recode_factor(dat_with_selfreport$ed.DSM5_AN_atypical_high_BMI_binary_numeric_cop,
+                "0" = "No DSM-5 atypical AN BMI >18.5",
+                "1" = "DSM-5 Atypical AN BMI >18.5")
+
+#Summary
+freq(dat_with_selfreport$ed.DSM5_AN_atypical_high_BMI_binary_cop)
+```
+
+## 'Anorexia nervosa' with BMI over 18.55 [COPING]
+```{r AN COPING algorithm high BMI}
+dat_with_selfreport$ed.DSM5_AN_high_BMI_binary_numeric_cop <- 
+  with(dat_with_selfreport,
+  dplyr::if_else(
+#A. Restriction of energy intake relative to requirements,leading to a significantly low body weight in the context of age, sex, developmental trajectory, and physical health. Significantly low weight is defined as a weight that is less than minimally normal or, for children and adolescents, less than that minimally expected.
+     (
+     (
+    an.bmi_lowest_cop > 18.55  # Lowest BMI as reported in ED100K optional questionnaire AN module, greater than 18.55
+       ) &
+#B. Intense fear of gaining weight or of becoming fat, or persistent behavior that interferes with weight gain, even though at a significantly low weight.
+   
+  # During the time when you were at this low weight, how afraid were you that you might gain weight or become fat?
+  (
+      an.1.gain_weight_low_weight_cop == "Somewhat afraid" |
+      an.1.gain_weight_low_weight_cop == "Very afraid" |
+      an.1.gain_weight_low_weight_cop == "Extremely afraid"
+      ) &
+
+# C. Disturbance in the way in which one’s body weight or shape is experienced... 
+
+  #During the time when you were at this low weight, did you still feel fat? 
+  (
+  (
+     an.1.feel_fat_low_weight_cop == "Somewhat" | 
+     an.1.feel_fat_low_weight_cop == "Very" |
+     an.1.feel_fat_low_weight_cop == "Extremely"
+    ) |
+    
+  # During the time when you were at this low weight did you ever experience your body or parts of your body to be larger than they actually were or than other people thought they were?
+  (
+    an.1.body_larger_low_weight_cop == "Somewhat" | 
+     an.1.body_larger_low_weight_cop == "Very much"
+    ) |
+  
+#...undue influence of body weight or shape on self-evaluation
+ 
+   # During the time when you were at this low weight, how dependent was your self-worth on your body shape or weight?
+    (
+      an.1.not_at_all_dependentcompletely_dependent_cop== "3" |
+      an.1.not_at_all_dependentcompletely_dependent_cop == "4" |
+      an.1.not_at_all_dependentcompletely_dependent_cop == "5" |
+      an.1.not_at_all_dependentcompletely_dependent_cop == "Completely Dependent"
+  ) |
+
+#...or persistent lack of recognition of the seriousness of the current low body weight.
+  
+# Did you ever think your low weight had negative consequences for your health?
+     an.1.low_weight_health_negative_cop == "Not at all"
+)
+),
+    true = 1,
+    false = 0,
+    missing = NA_real_)
+)
+  
+#Recode numeric to factor
+dat_with_selfreport$ed.DSM5_AN_high_BMI_binary_cop <-
+  recode_factor(dat_with_selfreport$ed.DSM5_AN_high_BMI_binary_numeric_cop,
+                "0" = "No DSM5 AN high BMI (no subtype)",
+                "1" = "DSM5 AN high BMI (no subtype)")
+
+
+#Summary
+freq(dat_with_selfreport$ed.DSM5_AN_high_BMI_binary_cop)
+```
+
+# Controls
+We request the following controls. The specific definitions are listed in terms of priority, so if option 1 is unavailable, option 2 is acceptable, etc. Please let us know which definition was used.
+1. Any individual who does not have a history of binge eating (narrow or broad definition) AND does not have a history of any eating disorder.
+2. Any individual who does not have a history of any eating disorder.
+3. Unscreened (i.e., these individuals may have anorexia nervosa or binge eating).
+
+Case:control ratio: If you contribute controls, we request a case:control ratio between 1:1 to 1:4. If this ratio is > 1:4, please contact Jet and Helena.
+## First, need to consider IBD/IBS cases
+### Read in data: NBR IBS/IBD
+```{r NBR data IBD}
+dat_nbr_health <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/coping_nbr/health_coping_nbr.rds")
+
+# Inspect dimensions
+dat_nbr_health %>%
+  dim()
+
+# Inspect colnames
+dat_nbr_health %>%
+  colnames()
+
+dat_nbr_health %>%
+  nrow()
+```
+
+Select columns
+```{r Select columns IBD }
+exclude_cols_dem <- c("ID",
+                      "sample")
+
+dat_nbr_health.id <- dat_nbr_health  %>% 
+  drop_na(subjectid) %>% # Drop NAs
+  remove_duplicates("subjectid")  %>%
+  add_column(sample = "NBR", .before = "health.inflammatory_bowel_disease_crohns") %>% #create new column 
+   select(
+         ID = subjectid,# ID
+         sample,
+         health.IBD = health.inflammatory_bowel_disease_crohns,
+         health.IBS = health.irritable_bowel_syndrome_
+         )
+
+# Check
+dat_nbr_health.id %>%
+  dim()
+```
+
+Frequency of IBS and/or IBD
+```{r Freq IBD }
+dat_nbr_health.id %>%
+  freq(health.IBD)
+
+dat_nbr_health.id %>%
+  freq(health.IBS)
+```
+
+## Next, need to consider AN screener question
+### Read in data: AN screener
+```{r NBR data AN screener}
+dat_nbr_AN_screener <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data_raw/latest_freeze/coping_nbr/an_scr_coping_nbr.rds")
+
+# Inspect dimensions
+dat_nbr_AN_screener %>%
+  dim()
+
+# Inspect colnames
+dat_nbr_AN_screener %>%
+  colnames()
+
+dat_nbr_AN_screener %>%
+  nrow()
+```
+Select columns
+```{r Select columns AN screener}
+dat_nbr_AN_screener.id <- dat_nbr_AN_screener  %>% 
+  drop_na(subjectid) %>% # Drop NAs
+  remove_duplicates("subjectid")  %>%
+  add_column(sample = "NBR", .before = "an.weigh_weighed_people_thought") %>% #create new column 
+   select(
+         ID = subjectid,# ID
+         sample,
+         an.weigh_weighed_people_thought_cop = an.weigh_weighed_people_thought
+         )
+
+# Check
+dat_nbr_AN_screener.id %>%
+  dim()
+
+dat_nbr_AN_screener %>%
+  colnames()
+
+dat_nbr_AN_screener %>%
+  nrow()
+```
+```{r Merge NBR data with IBD/IBS data}
+# Merge IBD/IBS with AN screener
+dat_nbr_IBD_IBS_AN_scr <- dplyr::full_join(dat_nbr_AN_screener.id,
+                                           dat_nbr_health.id,
+                                           by = c("ID",
+                                                  "sample"
+                                                  )
+)
+
+# Filter out GLAD/GLAD COPING participants from main data
+dat_nbr <- dat_with_selfreport %>%
+  filter(sample == "NBR")
+
+# Merge all
+dat_nbr_merged <- dplyr::full_join(dat_nbr,
+                        dat_nbr_IBD_IBS_AN_scr,
+                        by = c("ID",
+                               "sample"
+                               )
+)
+
+# Check
+dat_nbr_merged %>%
+  colnames()
+
+dat_nbr_merged %>%
+  nrow()
+```
+
+## Control algorithm
+1. Any individual who does not have a history of binge eating (narrow or broad definition) AND does not have a history of any eating disorder.
+```{r Controls algorithm}
+# No anorexia
+dat_nbr_merged <- dat_nbr_merged %>%
+  mutate(no_AN =
+           case_when
+         ( 
+           (an.weigh_weighed_people_thought_cop == 0 | # Did not pass AN screener
+             ed.DSM5_AN_binary_numeric_cop == 0) & # OR did pass AN screener but do not meet diagnostic criteria for anorexia nervosa via the AN module
+              
+              (aan.considered_lost_weight_period_cop == "No" | # Did not pass AAN screener
+                ed.DSM5_AN_atypical_low_BMI_binary_numeric_cop == 0) ~1  # OR did pass AAN screener but do not meet diagnostic criteria for anorexia nervosa via the AAN module
+           )
+         )
+
+
+dat_nbr_merged %>%
+  freq(no_AN)
+
+# No atypical anorexia
+dat_nbr_merged <- dat_nbr_merged %>%
+  mutate(no_AAN =
+           case_when
+         (
+           (aan.considered_lost_weight_period_cop == "No" | # Did not pass AAN screener
+            ed.DSM5_AN_atypical_high_BMI_binary_numeric_cop == 0) & # OR did pass AAN screener but do not meet diagnostic criteria for atypical anorexia nervosa via the AAN module
+             
+            (an.weigh_weighed_people_thought_cop == 0 | # Did not pass AN screener
+              ed.DSM5_AN_high_BMI_binary_numeric_cop == 0) ~1 # OR did pass AAN screener but do not meet diagnostic criteria for atypical anorexia nervosa via the AN module
+           )
+         )
+
+dat_nbr_merged %>%
+  freq(no_AAN)
+
+# No binge eating
+dat_nbr_merged <- dat_nbr_merged %>%
+  mutate(no_BE =
+           case_when(
+             (
+               be.ate_regard_short_period_cop == "No" | # No history of binge eating
+                 (be.ate_regard_short_period_cop == "Yes" & # Have history of binge eating... 
+                    be.regularly_occurring_episodes_binge_cop == "No") ~ 1 #...but no loss of control
+                       )
+             )
+         )
+
+dat_nbr_merged %>%
+  freq(no_BE)
+
+freq(dat_nbr_merged$mhd.none_eds_cop_numeric)
+
+
+# No history of other EDs (self-report)
+dat_nbr_merged <- dat_nbr_merged %>%
+  mutate(no_other_ED =
+           case_when(
+             mhd.suspected_eating_disorder_diagnosed_cop_numeric == 0 | # Never suspected an eating disorder
+               (
+                 (mhd.suspected_eating_disorder_diagnosed_cop_numeric == 1 | # Suspected ED OR
+                  mhd.suspected_eating_disorder_diagnosed_cop_numeric == -888) & # Not sure if suspected eating disorder...
+                   mhd.none_eds_cop_numeric == 1
+                 ) ~ 1 #...suspected but never been diagnosed with an eating disorder
+                       )
+         )
+
+dat_nbr_merged %>%
+  freq(no_other_ED)
+
+# Control algorithm
+dat_nbr_merged <- dat_nbr_merged %>%
+  mutate(control =
+           case_when( 
+             
+              no_AN == 1 &
+              no_AAN == 1 &
+              no_BE == 1 &
+              no_other_ED == 1 ~ 1,
+             TRUE ~ 0
+             )
+           )
+
+dat_nbr_merged %>%
+  freq(control)  
+```
+
+```{r Select IDs of controls}
+control_iDs <- dat_nbr_merged %>%
+  filter(control == 1)   %>%
+  pull(ID)
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(control =
+           case_when(
+             ID %in% control_iDs ~ 1,
+             TRUE ~ 0
+                        )
+         )
+
+# Check 
+dat_with_selfreport %>%
+  freq(control)
+```
+
+```{r Select IDs of IBD and IBS}
+# IBD
+IBD_yes_IDs <- dat_nbr_merged %>%
+  filter(health.IBD == 1)   %>%
+  pull(ID)
+
+IBD_no_IDs <- dat_nbr_merged %>%
+  filter(health.IBD == 0)   %>%
+  pull(ID)
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(IBD =
+           case_when(
+             ID %in% IBD_yes_IDs ~ 1,
+             ID %in% IBD_no_IDs ~ 0,
+             TRUE ~ NA_real_ # This will be GLAD/GLAD COPING participants or NBR participants who did not answer the IBD questionnaire
+                        )
+         )
+# Check 
+dat_with_selfreport %>%
+  freq(IBD)
+
+# IBS
+IBS_yes_IDs <- dat_nbr_merged %>%
+  filter(health.IBS == 1)   %>%
+  pull(ID)
+
+IBS_no_IDs <- dat_nbr_merged %>%
+  filter(health.IBS == 0)   %>%
+  pull(ID)
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(IBS =
+           case_when(
+             ID %in% IBS_yes_IDs ~ 1,
+             ID %in% IBS_no_IDs ~ 0,
+             TRUE ~ NA_real_ # This will be GLAD/GLAD COPING participants or NBR participants who did not answer the IBS questionnaire
+                        )
+         )
+
+# Check 
+dat_with_selfreport %>%
+  freq(IBS)
+```
+
+Need to select same amount of people with IBS/IBD as the general population
+In the control sample, should have only prevalence with IBS or IBD that reflects the general pop.
+
+IBS: Prevalence in the general population is estimated to be between 10% and 20%. https://www.nice.org.uk/guidance/cg61/chapter/introduction
+IBD: In 2015, an estimated 3.1 million (1.3%) of U.S. adults had ever received a diagnosis of inflammatory bowel disease. https://www.cdc.gov/mmwr/volumes/65/wr/mm6542a3.htm
+
+```{r selecting pop prev IBD and IBS}
+# IBS - percentage of controls with condition
+dat_with_selfreport %>%
+  filter(control == 1) %>%
+  nrow()
+# 10598
+
+dat_with_selfreport %>%
+  filter(control == 1 &
+    IBS == 1) %>%
+  nrow()
+# 746
+
+(744/10598)*100 # 7% Will leave as is
+
+# IBD - percentage of controls with condition
+dat_with_selfreport %>%
+  filter(control == 1 &
+    IBD == 1) %>%
+  nrow()
+# 1586
+
+(1588/10598)*100 # 15% - Need to randomly select 138 people (i.e., 1.3% of 10598)
+(138/10598)*100 # 1.3%
+
+# Random selection
+set.seed(123)
+IBD_controls <- dat_with_selfreport %>%
+  filter(IBD == 1 &
+           control == 1) %>%
+  sample_n(138) %>%
+  pull(ID)
+
+No_IBD_controls <- dat_with_selfreport %>% #  8,973
+  filter(IBD == 0 &
+         control == 1)  %>%
+  pull(ID)
+
+# Create new, final control variable that includes all controls without IBD, but only 138 controls with IBD
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(control_final =
+           case_when(
+             ID %in% IBD_controls |
+              ID %in% No_IBD_controls ~ 1,
+             TRUE ~ 0
+                        )
+         )
+
+dat_with_selfreport %>%
+  freq(control_final)
+```
+
+# GLAD participants: Selecting relevant additional variable
+```{r broad vs narrow BE in GLAD and GLAD COPING}
+dat_with_selfreport %>%
+  filter(BE_narrow_GLAD == 0 &
+           BE_broad_GLAD == 1 &
+           BE_narrow_COPING == 1
+          )
+
+# 71 people who met broad BE criteria in GLAD but didn't meet narrow BE criteria, but went on to meet it in COPING. Therefore need to also split narrow and broad BE when looking at additional variables
+```
+
+Filter sample out to contain only cases or controls
+```{r filter out sample for only cases and controls}
+# AN
+case_control_dat_AN <- dat_with_selfreport %>%
+  filter(AN_GLAD == 1 |
+         ANR_GLAD == 1 |
+         ANBP_GLAD == 1 |
+         AN_COPING == 1 |
+         ANR_COPING == 1 |
+         ANBP_COPING == 1 |
+         control_final == 1
+          )
+
+case_control_dat_AN %>%
+  nrow()
+
+# BE broad
+case_control_dat_BE_broad <- dat_with_selfreport %>%
+  filter(BE_broad_COPING == 1 |
+         BE_broad_GLAD == 1 |
+         control_final == 1
+          )
+
+case_control_dat_BE_broad %>%
+  nrow()
+
+# BE narrow
+case_control_dat_BE_narrow <- dat_with_selfreport %>%
+  filter(BE_narrow_COPING == 1 |
+         BE_narrow_GLAD == 1 |
+         control_final == 1
+          )
+
+case_control_dat_BE_narrow %>%
+  nrow()
+```
+
+
+
+For GLAD participants, need to select additional variables (ideally) depending on when they reach criteria, i.e., if in GLAD, then all additional variable information should be from GLAD (if available). If in COPING, then all additional variable information should be from COPING (if available). This is only for variables that can change, e.g., age.
+## First, identify where they first reach criteria
+```{r identify where GLAD participants reach criteria age}
+# Age in AN sample
+case_control_dat_AN <- case_control_dat_AN %>%
+  mutate(age_final =
+           case_when(sample == "NBR" ~ age_at_assessment_cop, # NBR participants only answered once (in COPING)
+                     
+            sample == "GLAD" &
+            AN_GLAD == 1 &
+            !is.na(age_at_assessment) ~ age_at_assessment,
+            
+            sample == "GLAD" &
+            AN_COPING == 1 &
+            !is.na(age_at_assessment_cop) ~ age_at_assessment_cop,
+            
+             !is.na(age_at_assessment) ~ age_at_assessment,
+           
+            TRUE ~ age_at_assessment_cop # If age in GLAD not available, then give them their age in COPING
+            )
+        )
+
+# Check  - everyone with data in the GLAD or COPING variable should data in the final variable
+case_control_dat_AN %>%
+  filter(is.na(age_final)) %>%
+  freq(age_at_assessment_cop)
+
+case_control_dat_AN %>%
+  filter(is.na(age_final)) %>%
+  freq(age_at_assessment)
+
+# Age in BE narrow sample
+case_control_dat_BE_narrow <- case_control_dat_BE_narrow %>%
+  mutate(age_final =
+           case_when(sample == "NBR" ~ age_at_assessment_cop, # NBR participants only answered once (in COPING)
+                     
+            sample == "GLAD" &
+            BE_narrow_GLAD == 1 & 
+            !is.na(age_at_assessment) ~ age_at_assessment,
+            
+            sample == "GLAD" &
+            BE_narrow_COPING == 1 &
+            !is.na(age_at_assessment_cop) ~ age_at_assessment_cop,
+            
+             !is.na(age_at_assessment) ~ age_at_assessment,
+            
+            TRUE ~ age_at_assessment_cop # If option in GLAD not available, then give them their option in COPING
+            )
+        )
+
+# Check  - everyone with data in the GLAD or COPING variable should data in the final variable
+case_control_dat_BE_narrow %>%
+  filter(is.na(age_final)) %>%
+  freq(age_at_assessment_cop)
+
+case_control_dat_BE_narrow %>%
+  filter(is.na(age_final)) %>%
+  freq(age_at_assessment)
+
+# Age in BE broad sample
+case_control_dat_BE_broad <- case_control_dat_BE_broad %>%
+  mutate(age_final =
+           case_when(sample == "NBR" ~ age_at_assessment_cop, # NBR participants only answered once (in COPING)
+                     
+            sample == "GLAD" &
+            BE_broad_GLAD == 1 & 
+            !is.na(age_at_assessment) ~ age_at_assessment,
+            
+            sample == "GLAD" &
+            BE_broad_COPING == 1 &
+            !is.na(age_at_assessment_cop) ~ age_at_assessment_cop,
+            
+             !is.na(age_at_assessment) ~ age_at_assessment,
+             
+            TRUE ~ age_at_assessment_cop # If option in GLAD not available, then give them their option in COPING
+            )
+        )
+
+# Check  - everyone with data in the GLAD or COPING variable should data in the final variable
+case_control_dat_BE_broad %>%
+  filter(is.na(age_final)) %>%
+  freq(age_at_assessment_cop)
+
+case_control_dat_BE_broad %>%
+  filter(is.na(age_final)) %>%
+  freq(age_at_assessment)
+```
+
+```{r identify where GLAD participants reach criteria current BMI}
+# Current BMI in AN sample
+case_control_dat_AN <- case_control_dat_AN %>%
+  mutate(current_bmi_final =
+           case_when(sample == "NBR" ~ current_bmi_cop, # NBR participants only answered once (in COPING)
+                     
+            sample == "GLAD" &
+            AN_GLAD == 1 &
+            !is.na(current_bmi) ~ current_bmi,
+            
+            sample == "GLAD" &
+            AN_COPING == 1 &
+            !is.na(current_bmi_cop) ~ current_bmi_cop,
+            
+             !is.na(current_bmi) ~ current_bmi,
+            
+            TRUE ~ current_bmi_cop # If age in GLAD not available, then give them their age in COPING
+            )
+        )
+
+# Check  - everyone with data in the GLAD or COPING variable should data in the final variable
+case_control_dat_AN %>%
+  filter(is.na(current_bmi_final)) %>%
+  freq(current_bmi_cop)
+
+case_control_dat_AN %>%
+  filter(is.na(current_bmi_final)) %>%
+  freq(current_bmi)
+
+# Current BMI in BE narrow sample
+case_control_dat_BE_narrow <- case_control_dat_BE_narrow %>%
+  mutate(current_BMI_final =
+           case_when(sample == "NBR" ~ current_bmi_cop, # NBR participants only answered once (in COPING)
+                     
+            sample == "GLAD" &
+            BE_narrow_GLAD == 1 & 
+            !is.na(current_bmi) ~ current_bmi,
+            
+            sample == "GLAD" &
+            BE_narrow_COPING == 1 &
+            !is.na(current_bmi_cop) ~ current_bmi_cop,
+            
+            !is.na(current_bmi) ~ current_bmi,
+            
+            TRUE ~ current_bmi_cop # If option in GLAD not available, then give them their option in COPING
+            )
+        )
+
+# Check  - everyone with data in the GLAD or COPING variable should data in the final variable
+case_control_dat_BE_narrow %>%
+  filter(is.na(current_BMI_final)) %>%
+  freq(current_bmi_cop)
+
+case_control_dat_BE_narrow %>%
+  filter(is.na(current_BMI_final)) %>%
+  freq(current_bmi)
+
+# Current BMI in BE broad sample
+case_control_dat_BE_broad <- case_control_dat_BE_broad %>%
+  mutate(current_BMI_final =
+           case_when(sample == "NBR" ~ current_bmi_cop, # NBR participants only answered once (in COPING)
+                     
+            sample == "GLAD" &
+            BE_broad_GLAD == 1 & 
+            !is.na(current_bmi) ~ current_bmi,
+            
+            sample == "GLAD" &
+            BE_broad_COPING == 1 &
+            !is.na(current_bmi_cop) ~ current_bmi_cop,
+            
+            !is.na(current_bmi) ~ current_bmi,
+            
+            TRUE ~ current_bmi_cop # If option in GLAD not available, then give them their option in COPING
+            )
+        )
+
+# Check  - everyone with data in the GLAD or COPING variable should data in the final variable
+case_control_dat_BE_broad %>%
+  filter(is.na(current_BMI_final)) %>%
+  freq(current_bmi_cop)
+
+case_control_dat_BE_broad %>%
+  filter(is.na(current_BMI_final)) %>%
+  freq(current_bmi)
+```
+
+```{r identify where GLAD participants reach criteria min ED-related BMI}
+# Minimum lifetime eating disorder-related body mass index (BMI) [cases]
+## Assuming only needed for AN ?
+case_control_dat_AN <- case_control_dat_AN %>%
+  mutate(min_ED_related_BMI =
+           case_when(
+             
+         # AN module 
+             # People in NBR who met criteria for anorexia in AN module in COPING
+             sample == "NBR" &
+             AN_COPING == 1 &  
+             !is.na(AN_lowest_bmi) ~ AN_lowest_bmi_cop, 
+             
+             # People in GLAD who met criteria for anorexia in AN module in GLAD
+             sample == "GLAD" &
+             AN_GLAD == 1 &
+             !is.na(AN_lowest_bmi) ~ AN_lowest_bmi,
+            
+             # People in GLAD who met criteria for anorexia in AN module in COPING
+            sample == "GLAD" &
+            AN_COPING == 1 &
+            !is.na(AN_lowest_bmi_cop) ~ AN_lowest_bmi_cop,
+          
+        # AAN module   
+            # People in GLAD who met criteria for anorexia in AAN module in GLAD
+            sample == "GLAD" &
+             AAN_LOWBMI_GLAD == 1 &  
+             !is.na(AAN_BMI) ~ AAN_BMI,
+            
+            # People in GLAD who met criteria for anorexia in AAN module in COPING
+            sample == "GLAD" &
+             AAN_LOWBMI_COPING == 1 &  
+             !is.na(AAN_BMI_cop) ~ AAN_BMI_cop,
+            
+            # People in NBR who met criteria for anorexia in AAN module in COPING
+             sample == "NBR" &
+             AAN_LOWBMI_COPING == 1 &  
+             !is.na(AAN_BMI_cop) ~ AAN_BMI_cop,
+            
+           
+        # Demographics module 
+             # Following discussion PGCED analyst call 28/01/22: Lowest adult BMI acceptable if missing lowest AN BMI (e.g., in the case of self-report of AN and person has not answered AN module). See two chunks below - 667 people are missing lowest ED-related BMI but not lowest adult BMI.
+              
+            # People in NBR who met criteria for anorexia in AN module in COPING
+             sample == "NBR" &
+             AN_COPING == 1 &  
+             !is.na(lowest_bmi_cop) ~ lowest_bmi_cop, 
+        
+             # People in GLAD who met criteria for anorexia in AN module in GLAD
+             sample == "GLAD" &
+             AN_GLAD == 1 &
+             !is.na(lowest_bmi) ~ lowest_bmi,
+        
+            # People in GLAD who met criteria for anorexia in AN module in COPING
+            sample == "GLAD" &
+            AN_COPING == 1 &
+            !is.na(lowest_bmi_cop) ~ lowest_bmi_cop,
+        
+        
+         # Catching anyone left over
+         # AN module 
+            !is.na(AN_lowest_bmi) ~ AN_lowest_bmi, # Anyone with a value in AN_lowest_BMI should be assigned value
+            !is.na(AN_lowest_bmi_cop) ~ AN_lowest_bmi_cop, # If AN option in GLAD is not available, then give them their option in COPING        
+         # AAN module 
+            !is.na(AAN_BMI) ~ AAN_BMI, # Anyone with a value in AAN_BMI should be assigned value (if not assigned before)
+            !is.na(AAN_BMI_cop) ~ AAN_BMI_cop, # If AAN option in GLAD is not available, then give them their option in COPING    
+        # Demographics module
+           !is.na(lowest_bmi_cop) ~ lowest_bmi_cop, # Anyone with a value in lowest_bmi_cop should be assigned value (if not assigned before)
+           !is.na(lowest_bmi) ~ lowest_bmi # If lowest BMI option in GLAD is not available, then give them their option in COPING    
+         
+            )
+        )
+ 
+# Check
+case_control_dat_AN %>%
+  filter(is.na(min_ED_related_BMI)) %>%
+           freq(AN_lowest_bmi)
+
+case_control_dat_AN %>%
+  filter(is.na(min_ED_related_BMI)) %>%
+           freq(AN_lowest_bmi_cop)
+
+case_control_dat_AN %>%
+  filter(is.na(min_ED_related_BMI)) %>%
+           freq(AAN_BMI)
+
+case_control_dat_AN %>%
+  filter(is.na(min_ED_related_BMI)) %>%
+           freq(lowest_bmi_cop)
+
+case_control_dat_AN %>%
+  filter(is.na(min_ED_related_BMI)) %>%
+           freq(lowest_bmi)
+```
+
+Check Ns of those who meet criteria for AN - how many missing lowest ED-related BMI?
+NB (this was initially written and run before the addition of lowest BMI from the demographics for lowest ED-related BMI)
+```{r check Ns of those who meet criteria for AN & missing lowest ED-related BMI, eval=FALSE, include=FALSE}
+# Check Ns of those who meet criteria for AN - how many missing lowest ED-related BMI?
+case_control_dat_AN %>%
+  filter(AN_COPING == 1 |
+           AN_GLAD == 1 |
+           AAN_LOWBMI_COPING == 1 |
+           AAN_LOWBMI_GLAD == 1 ) %>%
+  freq(min_ED_related_BMI) # 1711 people with AN do not have lowest ED-related BMI
+
+# Do these people have data in lowest BMI?
+case_control_dat_AN %>%
+  filter((AN_COPING == 1 |
+           AN_GLAD == 1 |
+           AAN_LOWBMI_COPING == 1 |
+          AAN_LOWBMI_GLAD == 1) &
+           is.na(min_ED_related_BMI)) %>%
+  freq(lowest_bmi) # 374 of 1711 people who do not have lowest ED-related BMI, DO have lowest BMI from GLAD
+
+case_control_dat_AN %>%
+  filter((AN_COPING == 1 |
+           AN_GLAD == 1 |
+           AAN_LOWBMI_COPING == 1 |
+          AAN_LOWBMI_GLAD == 1) &
+           (is.na(min_ED_related_BMI) &
+              is.na(lowest_bmi))) %>%
+  freq(lowest_bmi_cop) # An additional 293 of 1711 who do not have lowest ED-related BMI, DO have lowest BMI from COPING
+
+# 667 PEOPLE
+```
+
+Are these people self-report?
+NB (this was initially written and run before the addition of lowest BMI from the demographics for lowest ED-related BMI)
+```{r people missing data for AN BMI self-report?, eval=FALSE, include=FALSE}
+bmi_people <- case_control_dat_AN %>%
+  filter((AN_COPING == 1 |
+           AN_GLAD == 1 |
+           AAN_LOWBMI_COPING == 1 |
+          AAN_LOWBMI_GLAD == 1) &
+           (is.na(min_ED_related_BMI) &
+              (!is.na(lowest_bmi) |
+              !is.na(lowest_bmi_cop)))) 
+
+bmi_people %>%
+  freq(ed.DSM5_AN_binary_numeric_cop) 
+
+bmi_people %>%
+  freq(mhd.an_cop_numeric)  # 84 have self-reported AN in MHD coping
+
+bmi_people %>%
+  freq(ANBP_COPING) 
+
+bmi_people %>%
+  freq(ANR_COPING) 
+
+
+bmi_people %>%
+  freq(ed.DSM5_AN_binary_numeric) 
+
+bmi_people %>%
+  freq(an.1.anorexia_nervosa) # 363 have self-reported ED in GLAD ED100K
+
+bmi_people %>%
+  freq(mhd.an_numeric) # 410 have self-reported ED in MHD GLAD
+
+bmi_people %>%
+  freq(ANBP_GLAD) 
+
+bmi_people %>%
+  freq(ANR_GLAD) 
+```
+
+```{r identify where GLAD participants reach criteria max BMI}
+# highest BMI in AN sample
+case_control_dat_AN <- case_control_dat_AN %>%
+  mutate(max_lifetime_bmi_final =
+           case_when(sample == "NBR" ~ highest_bmi_cop, # NBR participants only answered once (in COPING)
+                     
+            sample == "GLAD" &
+            AN_GLAD == 1 &
+            !is.na(highest_bmi) ~ highest_bmi,
+            
+            sample == "GLAD" &
+            AN_COPING == 1 &
+            !is.na(highest_bmi_cop) ~ highest_bmi_cop,
+            
+             !is.na(highest_bmi) ~ highest_bmi,
+            
+            TRUE ~ highest_bmi_cop # If age in GLAD not available, then give them their age in COPING
+            )
+        )
+
+# Check  - everyone with data in the GLAD or COPING variable should data in the final variable
+case_control_dat_AN %>%
+  filter(is.na(max_lifetime_bmi_final)) %>%
+  freq(highest_bmi_cop)
+
+case_control_dat_AN %>%
+  filter(is.na(max_lifetime_bmi_final)) %>%
+  freq(highest_bmi)
+
+# highest BMI in BE narrow sample
+case_control_dat_BE_narrow <- case_control_dat_BE_narrow %>%
+  mutate(max_lifetime_bmi_final =
+           case_when(sample == "NBR" ~ highest_bmi_cop, # NBR participants only answered once (in COPING)
+                     
+            sample == "GLAD" &
+            BE_narrow_GLAD == 1 & 
+            !is.na(highest_bmi) ~ highest_bmi,
+            
+            sample == "GLAD" &
+            BE_narrow_COPING == 1 &
+            !is.na(highest_bmi_cop) ~ highest_bmi_cop,
+            
+            !is.na(highest_bmi) ~ highest_bmi,
+            
+            TRUE ~ highest_bmi_cop # If option in GLAD not available, then give them their option in COPING
+            )
+        )
+
+# Check  - everyone with data in the GLAD or COPING variable should data in the final variable
+case_control_dat_BE_narrow %>%
+  filter(is.na(max_lifetime_bmi_final)) %>%
+  freq(highest_bmi_cop)
+
+case_control_dat_BE_narrow %>%
+  filter(is.na(max_lifetime_bmi_final)) %>%
+  freq(highest_bmi)
+
+# highest BMI in BE broad sample
+case_control_dat_BE_broad <- case_control_dat_BE_broad %>%
+  mutate(max_lifetime_bmi_final =
+           case_when(sample == "NBR" ~ highest_bmi_cop, # NBR participants only answered once (in COPING)
+                     
+            sample == "GLAD" &
+            BE_broad_GLAD == 1 & 
+            !is.na(highest_bmi) ~ highest_bmi,
+            
+            sample == "GLAD" &
+            BE_broad_COPING == 1 &
+            !is.na(highest_bmi_cop) ~ highest_bmi_cop,
+            
+            !is.na(highest_bmi) ~ highest_bmi,
+            
+            TRUE ~ highest_bmi_cop # If option in GLAD not available, then give them their option in COPING
+            )
+        )
+
+# Check  - everyone with data in the GLAD or COPING variable should data in the final variable
+case_control_dat_BE_broad %>%
+  filter(is.na(max_lifetime_bmi_final)) %>%
+  freq(highest_bmi_cop)
+
+case_control_dat_BE_broad %>%
+  filter(is.na(max_lifetime_bmi_final)) %>%
+  freq(highest_bmi)
+```
+
+## For the others, need to select from GLAD first (if avail) and if not, then select from COPING.
+```{r non-changing variables}
+# Low weight age of onset - AN sample
+case_control_dat_AN <- case_control_dat_AN %>%
+  mutate(low_weight_age_onset_final =
+           case_when(
+             !is.na(low_weight_age_onset) ~ low_weight_age_onset,
+
+            TRUE ~ low_weight_age_onset_cop # If low weight onset in GLAD not available, then give them their data from COPING
+            )
+        )
+
+# Check
+case_control_dat_AN %>%
+  filter(is.na(low_weight_age_onset_final)) %>%
+  freq(low_weight_age_onset)
+
+case_control_dat_AN %>%
+  filter(is.na(low_weight_age_onset_final)) %>%
+  freq(low_weight_age_onset_cop)
+
+# Binge eating age of onset - BE broad
+case_control_dat_BE_broad <- case_control_dat_BE_broad %>%
+  mutate(binge_eating_age_onset_final =
+           case_when(
+             !is.na(binge_eating_age_onset) ~ binge_eating_age_onset,
+
+            TRUE ~ binge_eating_age_onset_cop # If binge eating onset in GLAD not available, then give them their data from COPING
+            )
+        )
+
+# Check
+case_control_dat_BE_broad %>%
+  filter(is.na(binge_eating_age_onset_final)) %>%
+  freq(binge_eating_age_onset)
+
+case_control_dat_BE_broad %>%
+  filter(is.na(binge_eating_age_onset_final)) %>%
+  freq(binge_eating_age_onset_cop)
+
+# Binge eating age of onset - BE broad
+case_control_dat_BE_narrow <- case_control_dat_BE_narrow %>%
+  mutate(binge_eating_age_onset_final =
+           case_when(
+             !is.na(binge_eating_age_onset) ~ binge_eating_age_onset,
+
+            TRUE ~ binge_eating_age_onset_cop # If binge eating onset in GLAD not available, then give them their data from COPING
+            )
+        )
+
+# Check
+case_control_dat_BE_narrow %>%
+  filter(is.na(binge_eating_age_onset_final)) %>%
+  freq(binge_eating_age_onset)
+
+case_control_dat_BE_narrow %>%
+  filter(is.na(binge_eating_age_onset_final)) %>%
+  freq(binge_eating_age_onset_cop)
+
+
+# Sex - AN sample
+case_control_dat_AN <- case_control_dat_AN %>%
+  mutate(sex_final =
+           case_when(
+             !is.na(sex) ~ sex,
+
+            TRUE ~ sex_cop # If binge eating onset in GLAD not available, then give them their data from COPING
+            )
+        )
+
+# Check
+case_control_dat_AN %>%
+  filter(is.na(sex_final)) %>%
+  freq(sex)
+
+case_control_dat_AN %>%
+  filter(is.na(sex_final)) %>%
+  freq(sex_cop)
+
+# Sex - BE broad
+case_control_dat_BE_broad <- case_control_dat_BE_broad %>%
+  mutate(sex_final =
+           case_when(
+             !is.na(sex) ~ sex,
+
+            TRUE ~ sex_cop # If binge eating onset in GLAD not available, then give them their data from COPING
+            )
+        )
+
+# Check
+case_control_dat_BE_broad %>%
+  filter(is.na(sex_final)) %>%
+  freq(sex)
+
+case_control_dat_BE_broad %>%
+  filter(is.na(sex_final)) %>%
+  freq(sex_cop)
+
+# Sex - BE narrow
+case_control_dat_BE_narrow <- case_control_dat_BE_narrow %>%
+  mutate(sex_final =
+           case_when(
+             !is.na(sex) ~ sex,
+
+            TRUE ~ sex_cop # If binge eating onset in GLAD not available, then give them their data from COPING
+            )
+        )
+
+# Check
+case_control_dat_BE_narrow %>%
+  filter(is.na(sex_final)) %>%
+  freq(sex)
+
+case_control_dat_BE_narrow %>%
+  filter(is.na(sex_final)) %>%
+  freq(sex_cop)
+```
+
+# Select variables for each dataset
+```{r select variables for each dataset}
+dat_AN_final <- case_control_dat_AN %>%
+  select(ID,
+         sample,
+         ANBP_GLAD,
+         ANBP_COPING,
+         ANR_COPING,
+         ANR_GLAD,
+         AN_GLAD,
+         AN_COPING,
+         control = control_final,
+         
+         # Additional variables (those that can change)
+         current_BMI = current_bmi_final,
+         age = age_final,
+         min_ED_related_BMI, # Assuming this is only needed for anorexia [only needed for cases]
+         min_lifetime_bmi = lowest_bmi_cop, # only needed for controls
+         max_lifetime_bmi = max_lifetime_bmi_final,
+         
+         # Additional variables (those that can not change or from NBR only)
+         low_weight_age_onset = low_weight_age_onset_final,
+         sex = sex_final
+         )
+
+dat_BE_broad_final <- case_control_dat_BE_broad %>%
+  select(ID,
+         sample,
+         BE_broad_COPING,
+         BE_broad_GLAD,
+         control = control_final,
+         
+         # Additional variables (those that can change)
+         current_BMI = current_BMI_final,
+         age = age_final,
+         min_lifetime_bmi = lowest_bmi_cop, # only needed for controls
+         max_lifetime_bmi = max_lifetime_bmi_final,
+         
+         # Additional variables (those that can not change or from NBR only)
+         binge_eating_age_onset = binge_eating_age_onset_final,
+         sex = sex_final
+         )
+
+dat_BE_narrow_final <- case_control_dat_BE_narrow %>%
+  select(ID,
+         sample,
+         BE_narrow_GLAD,
+         BE_narrow_COPING,
+         control = control_final,
+         
+         # Additional variables (those that can change)
+         current_BMI = current_BMI_final,
+         age = age_final,
+         min_lifetime_bmi = lowest_bmi_cop, # only needed for controls
+         max_lifetime_bmi = max_lifetime_bmi_final,
+         
+         # Additional variables (those that can not change or from NBR only)
+         binge_eating_age_onset = binge_eating_age_onset_final,
+         sex = sex_final
+         )
+```
+
+# Finally, do a final clean of each dataset
+## Anorexia
+```{r final clean and check of each variable cases}
+dat_AN_final <- dat_AN_final %>%
+  mutate(AN =
+           case_when(ANBP_GLAD == 1 |
+         ANBP_COPING == 1 |
+         ANR_COPING == 1 |
+         ANR_GLAD == 1 |
+         AN_GLAD == 1 |
+         AN_COPING == 1 ~ 1,
+         
+         TRUE ~ 0
+         )
+         )
+
+# Check
+dat_AN_final %>%
+  freq(AN)
+
+dat_AN_final <- dat_AN_final %>%
+  mutate(ANR =
+           case_when(
+             ANR_COPING == 1 |
+             ANR_GLAD == 1 ~ 1,
+         
+         TRUE ~ 0
+         )
+         )
+
+# Check
+dat_AN_final %>%
+  freq(ANR)
+
+dat_AN_final <- dat_AN_final %>%
+  mutate(ANBP =
+           case_when(
+             ANBP_COPING == 1 |
+             ANBP_GLAD == 1 ~ 1,
+         
+         TRUE ~ 0
+         )
+         )
+
+# Check
+dat_AN_final %>%
+  freq(ANBP)
+```
+
+```{r final clean and check of each variable controls}
+dat_AN_final %>%
+  freq(control)
+
+# Double check that no controls are coded as AN
+dat_AN_final %>%
+  group_by(AN) %>%
+  freq(control)
+```
+         
+```{r final clean and check of each variable additional variables}
+# age: Check no implausible values
+dat_AN_final %>%
+  descr(age)
+
+# low_weight_age_onset: Check no implausible values
+dat_AN_final %>%
+  descr(low_weight_age_onset)
+
+# sex: Check no implausible values
+dat_AN_final %>%
+  freq(sex)
+
+# Recode sex to numeric (males = 0, females = 1)
+dat_AN_final <- dat_AN_final %>%
+   mutate(sex =
+            case_when(sex == "Male" ~ 0,
+                      sex == "Female" ~ 1
+                      )
+          )
+
+# Current BMI: Check no implausible values
+dat_AN_final %>%
+  descr(current_BMI)
+
+# Current BMI: Set -666 to NA_real_
+dat_AN_final <- dat_AN_final %>%
+  mutate(current_BMI =
+           case_when(current_BMI == -666 ~ NA_real_,
+                     TRUE ~ current_BMI
+             
+           ))
+
+# min_ED_related_BMI: Check no implausible values
+dat_AN_final %>%
+  descr(min_ED_related_BMI)
+
+# min_ED_related_BMI: Set -666 to NA_real_
+dat_AN_final <- dat_AN_final %>%
+  mutate(min_ED_related_BMI =
+           case_when(min_ED_related_BMI == -666 ~ NA_real_,
+                     TRUE ~ min_ED_related_BMI
+             
+           ))
+
+# min_lifetime_bmi: Check no implausible values
+dat_AN_final %>%
+  descr(min_lifetime_bmi)
+
+# min_lifetime_bmi: Set -666 to NA_real_
+dat_AN_final <- dat_AN_final %>%
+  mutate(min_lifetime_bmi =
+           case_when(min_lifetime_bmi == -666 ~ NA_real_,
+                     TRUE ~ min_lifetime_bmi
+             
+           ))
+
+# max_lifetime_bmi: Check no implausible values
+dat_AN_final %>%
+  descr(max_lifetime_bmi)
+
+# max_lifetime_bmi: Set -666 to NA_real_
+dat_AN_final <- dat_AN_final %>%
+  mutate(max_lifetime_bmi =
+           case_when(max_lifetime_bmi == -666 ~ NA_real_,
+                     TRUE ~ max_lifetime_bmi
+             
+           ))
+```
+
+```{r save AN dataset}
+dat_AN_final %>% 
+  select(ID,
+         sample,
+         AN,
+         ANBP,
+         ANR,
+         control,
+         
+         # Additional variables 
+         current_BMI,
+         age,
+         min_ED_related_BMI, 
+         min_lifetime_bmi,
+         max_lifetime_bmi,
+         low_weight_age_onset,
+         sex 
+         ) %>%
+  saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/AN_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
+```
+
+```{r final clean and check of each variable cases}
+dat_BE_broad_final <- dat_BE_broad_final %>%
+  mutate(BE_broad =
+           case_when(BE_broad_COPING |
+                       BE_broad_GLAD == 1 ~ 1,
+         
+         TRUE ~ 0
+         )
+         )
+
+# Check
+dat_BE_broad_final %>%
+  freq(BE_broad)
+```
+
+```{r final clean and check of each variable controls}
+dat_BE_broad_final %>%
+  freq(control)
+
+# Double check that no controls are coded as AN
+dat_BE_broad_final %>%
+  group_by(BE_broad) %>%
+  freq(control)
+```
+         
+```{r final clean and check of each variable additional variables}
+# age: Check no implausible values
+dat_BE_broad_final %>%
+  descr(age)
+
+# binge_eating_age_onset: Check no implausible values
+dat_BE_broad_final %>%
+  descr(binge_eating_age_onset)
+
+# sex: Check no implausible values
+dat_BE_broad_final %>%
+  freq(sex)
+
+# Recode sex to numeric (males = 0, females = 1)
+dat_BE_broad_final <- dat_BE_broad_final %>%
+   mutate(sex =
+            case_when(sex == "Male" ~ 0,
+                      sex == "Female" ~ 1
+                      )
+          )
+
+# Current BMI: Check no implausible values
+dat_BE_broad_final %>%
+  descr(current_BMI)
+
+# Current BMI: Set -666 to NA_real_
+dat_BE_broad_final <- dat_BE_broad_final %>%
+  mutate(current_BMI =
+           case_when(current_BMI == -666 ~ NA_real_,
+                     TRUE ~ current_BMI
+             
+           ))
+
+
+# min_lifetime_bmi: Check no implausible values
+dat_BE_broad_final %>%
+  descr(min_lifetime_bmi)
+
+# min_lifetime_bmi: Set -666 to NA_real_
+dat_BE_broad_final <- dat_BE_broad_final %>%
+  mutate(min_lifetime_bmi =
+           case_when(min_lifetime_bmi == -666 ~ NA_real_,
+                     TRUE ~ min_lifetime_bmi
+             
+           ))
+
+# max_lifetime_bmi: Check no implausible values
+dat_BE_broad_final %>%
+  descr(max_lifetime_bmi)
+
+# max_lifetime_bmi: Set -666 to NA_real_
+dat_BE_broad_final <- dat_BE_broad_final %>%
+  mutate(max_lifetime_bmi =
+           case_when(max_lifetime_bmi == -666 ~ NA_real_,
+                     TRUE ~ max_lifetime_bmi
+             
+           ))
+```
+
+```{r save BE broad dataset}
+dat_BE_broad_final %>% 
+  select(ID,
+         sample,
+         BE_broad,
+         control,
+         
+         # Additional variables 
+         current_BMI,
+         age,
+         min_lifetime_bmi,
+         max_lifetime_bmi,
+         binge_eating_age_onset,
+         sex 
+         ) %>%
+  saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/BE_broad_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
+```
+
+```{r final clean and check of each variable cases}
+dat_BE_narrow_final <- dat_BE_narrow_final %>%
+  mutate(BE_narrow =
+           case_when(BE_narrow_COPING |
+                       BE_narrow_GLAD == 1 ~ 1,
+         
+         TRUE ~ 0
+         )
+         )
+
+# Check
+dat_BE_narrow_final %>%
+  freq(BE_narrow)
+```
+
+```{r final clean and check of each variable controls}
+dat_BE_narrow_final %>%
+  freq(control)
+
+# Double check that no controls are coded as AN
+dat_BE_narrow_final %>%
+  group_by(BE_narrow) %>%
+  freq(control)
+```
+         
+```{r final clean and check of each variable additional variables}
+# age: Check no implausible values
+dat_BE_narrow_final %>%
+  descr(age)
+
+# binge_eating_age_onset: Check no implausible values
+dat_BE_narrow_final %>%
+  descr(binge_eating_age_onset)
+
+# sex: Check no implausible values
+dat_BE_narrow_final %>%
+  freq(sex)
+
+# Recode sex to numeric (males = 0, females = 1)
+dat_BE_narrow_final <- dat_BE_narrow_final %>%
+   mutate(sex =
+            case_when(sex == "Male" ~ 0,
+                      sex == "Female" ~ 1
+                      )
+          )
+
+# Current BMI: Check no implausible values
+dat_BE_narrow_final %>%
+  descr(current_BMI)
+
+# Current BMI: Set -666 to NA_real_
+dat_BE_narrow_final <- dat_BE_narrow_final %>%
+  mutate(current_BMI =
+           case_when(current_BMI == -666 ~ NA_real_,
+                     TRUE ~ current_BMI
+             
+           ))
+
+
+# min_lifetime_bmi: Check no implausible values
+dat_BE_narrow_final %>%
+  descr(min_lifetime_bmi)
+
+# min_lifetime_bmi: Set -666 to NA_real_
+dat_BE_narrow_final <- dat_BE_narrow_final %>%
+  mutate(min_lifetime_bmi =
+           case_when(min_lifetime_bmi == -666 ~ NA_real_,
+                     TRUE ~ min_lifetime_bmi
+             
+           ))
+
+# max_lifetime_bmi: Check no implausible values
+dat_BE_narrow_final %>%
+  descr(max_lifetime_bmi)
+
+# max_lifetime_bmi: Set -666 to NA_real_
+dat_BE_narrow_final <- dat_BE_narrow_final %>%
+  mutate(max_lifetime_bmi =
+           case_when(max_lifetime_bmi == -666 ~ NA_real_,
+                     TRUE ~ max_lifetime_bmi
+             
+           ))
+```
+
+```{r save BE narrow dataset}
+dat_BE_narrow_final %>% 
+  select(ID,
+         sample,
+         BE_narrow,
+         control,
+         
+         # Additional variables 
+         current_BMI,
+         age,
+         min_lifetime_bmi,
+         max_lifetime_bmi,
+         binge_eating_age_onset,
+         sex 
+         ) %>%
+  saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/BE_narrow_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
+```
+
+```{r}
+dat_BE_narrow_final <-  readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/BE_narrow_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
+
+dat_BE_broad_final <-  readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/BE_broad_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
+
+dat_AN_final <- readRDS(file ="/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/AN_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
+```
+
+```{r pull IDs of cases and controls for Lee}
+# Merge all data by ID
+BE_dat <- dplyr::full_join(dat_BE_narrow_final,
+                           dat_BE_broad_final,
+                           by ="ID")
+
+dat <- dplyr::full_join(dat_AN_final,
+                           BE_dat,
+                           by = "ID")
+
+
+
+dat <- dat %>%
+  mutate(case_control= 
+           case_when(control == 1 ~ 0,
+                     AN == 1 |
+                     BE_narrow == 1 |
+                     BE_broad == 1 ~ 1
+                     )
+         )
+
+# Check 
+dat %>%
+  freq(case_control)
+
+# Check 
+dat %>%
+  nrow()
+
+length(unique(dat$ID))
+
+# Pull IDs
+dat_IDs <- dat %>%
+  select(ID,
+       case_control) %>%
+  saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/PGC_GLAD_NBR_case_control_IDs.rds")
+```
+

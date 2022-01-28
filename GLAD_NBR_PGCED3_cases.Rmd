@@ -46,6 +46,7 @@ ED_diagnosis_coping_glad_nbr <- readRDS(file = "/Users/helenadavies/King's Colle
 ED_diagnosis_glad <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/algorithms/ed_algorithms_diagnostics_glad_clean.rds")
 ```
 
+
 # Merge cleaned data
 ```{r merge glad and coping cleaned disorder diagnosis data}
 ED_diagnosis_dat_merged <- dplyr::full_join(ED_diagnosis_coping_glad_nbr,

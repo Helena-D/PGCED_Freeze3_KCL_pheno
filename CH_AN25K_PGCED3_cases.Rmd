@@ -477,7 +477,7 @@ dat <- dat %>%
                        reg_info_BN_broad == 1 | # Bulimia or BED mentioned with word diagnosis in reg notes  
                        # text_box_self_reported_BN == 1 | # Not necessarily a diagnosis so cannot include
                        diagnosis_BN == 1 | # Prim or secondary diagnosis of BN or BED 
-                       binge_eating_loss_control_DSM5 == 1 ~ 1 # Binge eating with loss of control
+                       binge_eating_loss_control == 1 ~ 1 # Binge eating with loss of control
                      )
   )
 

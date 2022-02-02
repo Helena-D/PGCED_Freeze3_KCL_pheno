@@ -1347,7 +1347,7 @@ gp_clinical %>%
   count(read_2_atypical_bulimia_nervosa) # 2 
 
 
-# R0360 = '[D]Bulimia NOS' OR '[D]Excessive eating'
+# R0360 = '[D]Bulimia NOS' OR '[D]Excessive eating' [neither case nor control]
 gp_clinical <- gp_clinical %>%
   mutate(read_2_bulimiaNOS_or_excessive_eating =
            case_when(read_2 == "R0360" ~ 1)
@@ -1357,7 +1357,7 @@ gp_clinical %>%
   count(read_2_bulimiaNOS_or_excessive_eating) # 63
 
 
-# E2751 = Bulimia (non-organic overeating)
+# E2751 = Bulimia (non-organic overeating) OR Compulsive eating disorder [neither case nor control]
 gp_clinical <- gp_clinical %>%
   mutate(read_2_bulimia_nonorganic_overeating =
            case_when(read_2 == "E2751" ~ 1)
@@ -1442,7 +1442,7 @@ gp_clinical %>%
 ```{r GP create dataset of broad BE cases}
 gp_BE_broad <- gp_clinical %>%
   filter(read_2_Xbulimia_nervosa_OR_bulimiaNOS == 1 |
-                    read_2_bulimia_nonorganic_overeating == 1 |
+                   # read_2_bulimia_nonorganic_overeating == 1 | # Not a case as includes 'Compulsive eating disorder'
                     read_3_suspected_BED == 1 |
                     read_3_BN == 1 |
                     read2_binge_eating == 1 |
@@ -1479,7 +1479,7 @@ gp_BE_broad %>%
 ```{r GP create dataset of narrow BE cases}
 gp_BE_narrow <- gp_clinical %>%
   filter(read_2_Xbulimia_nervosa_OR_bulimiaNOS == 1 |
-                    read_2_bulimia_nonorganic_overeating == 1 |
+                   # read_2_bulimia_nonorganic_overeating == 1 | # Not a case as includes 'Compuslive eating disorder'
                     read_3_suspected_BED == 1 |
                     read_3_BN == 1 
            ) 

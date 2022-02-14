@@ -41,6 +41,9 @@ library(DescTools)
 
 #install.packages("tidyverse")
 library(tidyverse)
+
+#install.packages("tidyr")
+library(tidyr)
 ```
 
 You need a file with required fields, one per line, no header.
@@ -2196,7 +2199,8 @@ strings <- c("eid",
 f %>%
 select(field, name) %>%
 filter(str_detect(field,
-                  paste(strings, collapse = "|"))) %>%
+                  paste(strings,
+                        collapse = "|"))) %>%
   bio_field_add("small_field_subset.txt")
 ```
 
@@ -2237,4 +2241,204 @@ covariates <- df %>%
 ```{r save covariate data}
 saveRDS(object = covariates, file = paste0("/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_covariates.rds"))
 ```
+
+# Additional - PCs and batch (from Lee)
+```{r read in covariate data}
+covar_dat <- readRDS(file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_covariates.rds")
+
+# Check
+colnames(covar_dat)
+```
+
+Read in PC data
+```{r read in PC data from Lee}
+covar_PCs <- read.table("/mnt/lustre/groups/ukbiobank/Edinburgh_Data/usr/lee/UKB_PGC_ED/EUR_FLASHPCA/pcs.txt") # ~40 PCs, we only want up to PC 6
+
+# Check
+colnames(covar_PCs)
+head(covar_PCs)
+
+# Rename columns
+covar_PCs_select_columns <- covar_PCs %>%
+  select(IID = V2,
+         PC1 = V3,
+         PC2 = V4,
+         PC3 = V5,
+         PC4 = V6,
+         PC5 = V7,
+         PC6 = V8
+         )
+
+# Check
+colnames(covar_PCs_select_columns)
+head(covar_PCs_select_columns)
+
+# Drop row 1
+PCs_dat_final <- covar_PCs_select_columns[-c(1), ]
+
+# Check
+head(PCs_dat_final)
+nrow(PCs_dat_final)
+```
+
+Read in batch data
+```{r read in PC data from Lee}
+covar_batch <- read.table("/scratch/groups/ukbiobank/ukb18177_glanville/genotyped/ukb18177_glanville_binary_pre_qc.fam") # text file. Can cross-check sex information with covariate file to check for errors!
+
+# Check
+colnames(covar_batch)
+head(covar_batch)
+
+# Rename columns
+covar_batch_select_columns <- covar_batch %>%
+  select(FID = V1,
+         IID = V2,
+         Ma = V3,
+         Pa = V4,
+         Sex = V5,
+         Batch = V6)
+
+# Check
+head(covar_batch_select_columns)
+
+# How many batches?
+covar_batch_select_columns %>%
+  count(Batch)
+
+# Create new 'value' columns
+covar_batch_select_columns <- covar_batch_select_columns %>%
+  mutate(value =
+           case_when(
+             !is.na(FID) ~ 1
+           ))
+
+# Create new columns for each 'Batch' variable
+covar_batch_select_columns_batch_wide <- covar_batch_select_columns %>%
+  tidyr::pivot_wider(id_cols = c(FID, IID),
+                     names_from = Batch,
+                     values_from = value
+                     )
+
+
+# Convert all NAs to 0s (contains 'Batch')
+covar_batch_select_columns_batch_wide_no_NAs <- covar_batch_select_columns_batch_wide %>%
+  mutate(across(contains("Batch"),
+                ~case_when(
+                  is.na(.) ~ 0,
+                  TRUE ~ .
+                )
+  )
+  )
+
+
+# Check this worked
+head(covar_batch_select_columns_batch_wide_no_NAs)
+
+# Convert all NAs to 0s (contains 'UKBi')
+covar_batch_select_columns_batch_wide_no_NAs2 <- covar_batch_select_columns_batch_wide_no_NAs %>%
+  mutate(across(contains("UKBi"),
+                ~case_when(
+                  is.na(.) ~ 0,
+                  TRUE ~ .
+                )
+  )
+  )
+
+# Check this worked
+covar_batch_select_columns_batch_wide_no_NAs2 %>%
+  count(UKBiLEVEAX_b7)
+
+# Convert all NAs to 0s (contains 'UKBi')
+covar_batch_select_columns_batch_wide_no_NAs3 <- covar_batch_select_columns_batch_wide_no_NAs2 %>%
+  mutate(dropout =
+                case_when(
+                  is.na(dropout) ~ 0,
+                  TRUE ~ dropout
+                )
+  )
+  
+# Check this worked
+covar_batch_select_columns_batch_wide_no_NAs3 %>%
+  count(dropout)
+
+# Convert all NAs to 0s (contains 'UKBi')
+covar_batch_select_columns_batch_wide_no_NAs4 <- covar_batch_select_columns_batch_wide_no_NAs3 %>%
+  mutate(redacted3 =
+                case_when(
+                  is.na(redacted3) ~ 0,
+                  TRUE ~ redacted3
+                )
+  )
+
+# Check this worked
+covar_batch_select_columns_batch_wide_no_NAs4 %>%
+  count(redacted3)
+
+# Final check
+head(covar_batch_select_columns_batch_wide_no_NAs4)
+
+# Select columns to merge
+covar_batch_select_columns_to_merge <- covar_batch_select_columns %>%
+  select(FID,
+         IID,
+         Ma,
+         Pa,
+         Sex)
+
+# Merge with previous dataset with Ma, Pa, and Sex
+batch_dat_final <- dplyr::full_join(covar_batch_select_columns_batch_wide_no_NAs4,
+                                    covar_batch_select_columns_to_merge,
+                                    by = c("FID",
+                                           "IID"))
+
+colnames(batch_dat_final)
+nrow(batch_dat_final)
+```
+
+```{r}
+str(batch_dat_final$IID)
+
+str(PCs_dat_final$IID)
+
+head(batch_dat_final)
+head(PCs_dat_final)
+```
+
+```{r merge the two files PC and batch}
+# Change IID to numeric in PC data
+PCs_dat_final$IID <- as.numeric(paste(PCs_dat_final$IID))
+
+PCS_and_batch <- dplyr::full_join(batch_dat_final,
+                                  PCs_dat_final,
+                                  by = "IID")
+
+# Check
+head(PCS_and_batch)
+colnames(PCS_and_batch)
+nrow(PCS_and_batch)
+```
+
+```{r merge with covariate data}
+covar_dat_to_merge <- covar_dat %>%
+  select(IID = eid,
+         sex,
+         bmi_at_initial_recruitment,
+         age_at_recruitment)
+
+
+# Merge
+covar_dat_batch_PC <- dplyr::full_join(PCS_and_batch,
+                                       covar_dat_to_merge,
+                                       by ="IID")
+
+# Check 
+nrow(covar_dat_batch_PC)
+rownames(covar_dat_batch_PC) <- NULL
+colnames(covar_dat_batch_PC)
+```
+
+```{r save covar data with batch and PC info}
+write_tsv(covar_dat_batch_PC, file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_covariates_merged_PC_batch.txt")
+```
+
 

@@ -46,7 +46,6 @@ ED_diagnosis_coping_glad_nbr <- readRDS(file = "/Users/helenadavies/King's Colle
 ED_diagnosis_glad <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/algorithms/ed_algorithms_diagnostics_glad_clean.rds")
 ```
 
-
 # Merge cleaned data
 ```{r merge glad and coping cleaned disorder diagnosis data}
 ED_diagnosis_dat_merged <- dplyr::full_join(ED_diagnosis_coping_glad_nbr,
@@ -114,7 +113,6 @@ colnames(AAN_screener_data_GLAD.id)
 #Differences
 dim(AAN_screener_data_GLAD)[1]-dim(AAN_screener_data_GLAD.id)[1]
 ```
-
 
 ## COPING GLAD 
 ```{r Read in AAN COPING GLAD screener data}
@@ -1537,6 +1535,7 @@ dat_with_selfreport$GLAD_BE_duration_months <-
 # Summary
 freq(dat_with_selfreport$GLAD_BE_duration_months) 
 ```
+
 # BINGE EATING PHENOTYPES
 ## NARROWLY DEFINED Binge eating
 
@@ -1550,7 +1549,7 @@ Narrowly defined binge eating: All individuals who meet any of the following cri
 
     a. If ANBP or OSFED/EDNOS is diagnosed, these individuals will only be included if symptom-level data confirm that they endorse the symptoms as described in item 1 of narrowly defined binge eating);
 
-3. Has a self-reported diagnosis of BN or BED, with specification that this has been confirmed by a healthcare professional;
+3. Has a self-reported diagnosis of BN or BED, with specification that this has been confirmed by a healthcare professional; Note that any cases of ANB(P) would be captured by the binge eating variable. Inclusion of BN / BED also includes self-report cases. (we do not include an ANBP self-report option but even if we did, it doesn't necessarily include binge eating as could be purging only)
 
 1. GLAD participants
 ```{r Narrow BE GLAD algorithm}
@@ -1876,6 +1875,7 @@ dat_with_selfreport %>%
 ```
 
 # ANOREXIA PHENOTYPES
+We are doing 5 GWASs; ANBP, ANR, AN, BE_broad, BE_narrow
 ## Anorexia nervosa binge-eating/purging subtype: 
 
 Any individual who meets the following criteria will be coded as “ANBP = 1”:
@@ -2242,6 +2242,7 @@ dat_with_selfreport %>%
 
 # Additional cases: Atypical anorexia nervosa module
 Can also identify cases via people who filled out the AAN questionnaire but actually met the AN weight threshold (i.e., BMI of or below 18.55)
+
 ## First, work out AAN BMI (COPING GLAD & NBR)
 Amount of weight lost (COPING GLAD & NBR)
 ```{r AAN amount of weight lost COPING}
@@ -2267,7 +2268,7 @@ dat_with_selfreport$aan.weight_lost_kg_total_cop[dat_with_selfreport$aan.weight_
 freq(dat_with_selfreport$aan.weight_lost_kg_total_cop)
 ```
 
-Weight before weight loss (COPING GLAD & NBR)
+Weight before weight loss (COPING GLAD & NBR), u.e., START weight
 ```{r AAN weight before weight loss COPING}
 # Rename / convert to numeric
 dat_with_selfreport$aan.weight_prior_lbs_cop <- dat_with_selfreport$aan.weigh_prior_stone_pounds_cop
@@ -2299,7 +2300,7 @@ dat_with_selfreport$aan.weight_prior_kg_total_cop[dat_with_selfreport$aan.weight
 freq(dat_with_selfreport$aan.weight_prior_kg_total_cop)
 ```
 
-Work out weight at period of significant weight loss (COPING GLAD & NBR)
+Work out weight at period of significant weight loss (COPING GLAD & NBR), i.e., weight AFTER weight loss
 ```{r AAN weight kg COPING}
 dat_with_selfreport$AAN_weight_kg_unc_cop <- dat_with_selfreport$aan.weight_prior_kg_total_cop - dat_with_selfreport$aan.weight_lost_kg_total_cop
 
@@ -2517,7 +2518,7 @@ freq(dat_with_selfreport$AAN_BMI)
     )
   )
   
-# Remove age outliers
+# Remove BMI outliers
   dat_with_selfreport <- dat_with_selfreport %>%
     mutate(
       AAN_BMI =
@@ -2538,8 +2539,7 @@ freq(dat_with_selfreport$AAN_BMI)
 ```
 
 ## AAN cases
-### BMI of 18.5 or less [GLAD]
-All of the criteria for anorexia nervosa are met, except that despite significant weight loss, the individual’s weight is within or above the normal range (BMI of 20 or above)
+### BMI of 18.5 or less [GLAD] - These will be counted as cases
 ```{r AAN GLAD algorithm low BMI}
 #Atypical anorexia nervosa numeric variable
 dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_numeric <- 
@@ -2620,8 +2620,7 @@ dat_with_selfreport %>%
   count()
 ```
 
-### BMI of 18.5 or less [COPING GLAD and NBR]
-All of the criteria for anorexia nervosa are met, except that despite significant weight loss, the individual’s weight is within or above the normal range (BMI of 20 or above)
+### BMI of 18.5 or less [COPING GLAD and NBR] - these will be counted as cases
 ```{r AAN COPING algorithm low BMI}
 #Atypical anorexia nervosa numeric variable
 dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_numeric_cop <- 
@@ -2670,7 +2669,6 @@ dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_cop <-
 
 #Summary
 freq(dat_with_selfreport$ed.DSM5_AN_atypical_low_BMI_binary_cop)
-
 ```
 
 COPING participants (GLAD + NBR) Count AAN low BMI cases 
@@ -2781,10 +2779,12 @@ dat_with_selfreport %>%
 # Exclusions 
 The following are people who can not be included as a case OR a control. Only need to test in COPING (NBR, specifically) as only people from these cohorts are eligible to be controls. Cases are identified with the above code.
 
-1. AN (no subtype) BMI ABOVE 18.5 
-2. AAN BMI above 18.5 
+The below are people who have atypical anorexia.
 
-## Atypical anorexia nervosa with BMI over 18.55 [COPING]
+1. Answered the AN module but have a BMI ABOVE 18.5 
+2. Answered the AAN module and have a BMI above 18.5 
+
+## Atypical anorexia nervosa module with BMI over 18.55 [COPING]
 All of the criteria for anorexia nervosa are met, except that despite significant weight loss, the individual’s weight is within or above the normal range (BMI of 18.5 or above)
 ```{r AAN COPING algorithm high BMI}
 #Atypical anorexia nervosa numeric variable
@@ -2972,6 +2972,7 @@ dat_nbr_AN_screener %>%
 dat_nbr_AN_screener %>%
   nrow()
 ```
+
 Select columns
 ```{r Select columns AN screener}
 dat_nbr_AN_screener.id <- dat_nbr_AN_screener  %>% 
@@ -2994,6 +2995,7 @@ dat_nbr_AN_screener %>%
 dat_nbr_AN_screener %>%
   nrow()
 ```
+
 ```{r Merge NBR data with IBD/IBS data}
 # Merge IBD/IBS with AN screener
 dat_nbr_IBD_IBS_AN_scr <- dplyr::full_join(dat_nbr_AN_screener.id,

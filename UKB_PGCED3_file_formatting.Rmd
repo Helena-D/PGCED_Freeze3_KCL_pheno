@@ -1,0 +1,210 @@
+---
+title: "UKB file formatting"
+author: "Helena Davies"
+date: "26/01/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Delete everything in your global environment
+```{r Delete everything in your global environment}
+remove(list = ls())
+```
+
+# Load packages
+```{r load packages}
+#install.packages("devtools")
+library(devtools)
+
+#install.packages("DescTools")
+library(DescTools)
+
+#install.packages("stringi")
+#library(stringi)
+
+#install.packages("tidyverse")
+library(tidyverse)
+```
+
+# Read in data
+## Case
+```{r read in case data}
+case_dat <- readRDS(file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_case_only_data.rds")
+
+# Check
+case_dat %>%
+  colnames()
+
+case_dat %>%
+  nrow()
+```
+
+## Control
+```{r read in control data}
+control_dat <- readRDS(file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_control_data.rds")
+
+# Check
+control_dat %>%
+  colnames()
+
+control_dat %>%
+  nrow()
+```
+
+# Merge all data
+```{r merge all data}
+dat <- dplyr::full_join(control_dat,
+                         case_dat,
+                         by ="eid")
+
+# Check
+dat %>%
+  colnames()
+
+dat <- dat %>%
+  select(eid,
+         BE_narrow,
+         BE_broad,
+         AN_case)
+```
+
+# Controls = 0, case = 1
+Regenie: for binary traits, must be coded as 0=control, 1=case, NA=missing unless using --1
+```{r coding AN for regenie}
+dat <- dat %>%
+  mutate(AN =
+           case_when(AN_case == 1 ~ 1, # Case
+                     
+                     eid %in% control_dat$eid ~ 0, # Controls 
+                     
+                     TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
+                     )
+  )
+
+# Check
+dat %>%
+  count(AN)
+```
+
+```{r coding BE_broad for regenie}
+dat <- dat %>%
+  mutate(BE_broad =
+           case_when(BE_broad == 1 ~ 1, # Case
+                     
+                     eid %in% control_dat$eid ~ 0, # Controls 
+                     
+                     TRUE ~ NA_real_ # Neither controls nor cases (i.e., AN cases)
+                     )
+  )
+
+# Check
+dat %>%
+  count(BE_broad)
+```
+
+```{r coding BE_broad for regenie}
+dat <- dat %>%
+  mutate(BE_narrow =
+           case_when(BE_narrow == 1 ~ 1, # Case
+                     
+                     eid %in% control_dat$eid ~ 0, # Controls 
+                     
+                     TRUE ~ NA_real_ # Neither controls nor cases (i.e., AN cases or BE broad)
+                     )
+  )
+
+# Check
+dat %>%
+  count(BE_narrow)
+```
+
+```{r coding FID for regenie}
+dat <- dat %>%
+  mutate(FID =
+           case_when(!is.na(eid)  ~ eid
+                     )
+  )
+
+# Check
+length(unique(dat$FID))
+```
+
+```{r select variables}
+dat <- dat %>%
+  select(FID,
+         IID = eid,
+         AN,
+         BE_broad,
+         BE_narrow)
+
+# Final checks
+head(dat)
+
+dat %>%
+  count(AN)
+
+dat %>%
+  count(BE_broad)
+
+dat %>%
+  count(BE_narrow)
+```
+
+```{r save as txt file space deliminated}
+write.table(dat,
+            file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_final_case_control_dat.txt",
+            col.names=T,
+            row.names = F,
+            quote=F,
+            sep=" ")
+```
+
+# Now, covariate file formatting
+## Read in data
+```{r read in control data}
+covariates_dat <- readRDS(file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_covariates.rds")
+
+# Check
+covariates_dat %>%
+  colnames()
+
+covariates_dat %>%
+  nrow()
+```
+
+```{r covariate file formatting}
+covariates_dat <- covariates_dat %>%
+  mutate(FID =
+           case_when(!is.na(eid)  ~ eid
+                     )
+  )
+
+# Check
+length(unique(covariates_dat$FID))
+
+colnames(covariates_dat)
+```
+
+```{r select variables}
+covariates_dat <- covariates_dat %>%
+  select(FID,
+         IID = eid,
+         sex,
+         age_at_recruitment,
+         bmi_at_initial_recruitment)
+
+# Final checks
+head(covariates_dat)
+```
+
+```{r save as txt file space deliminated}
+write.table(covariates_dat,
+            file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_final_covariates_dat.txt",
+            row.names = F,
+            col.names=T,
+            quote=F,
+            sep=" ")
+```

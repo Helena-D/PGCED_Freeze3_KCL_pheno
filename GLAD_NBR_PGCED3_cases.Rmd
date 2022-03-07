@@ -18,17 +18,33 @@ Delete everything in your global environment
 remove(list = ls())
 ```
 
-Call in library script
-```{r Source library}
-source("./libraries.R")
-```
-
 Call in functions script
 ```{r Source functions}
 source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/add_numeric.R")
 source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/remove_duplicates.R")
 source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/package_check.R")
-source("./functions.R")
+```
+
+Use package_check to install and load dependencies
+Load tidyverse last
+```{r Install load dependencies}
+packages <- c("summarytools",
+              "sjlabelled",
+              "Amelia",
+              "gtsummary",
+              "janitor",
+              "psych",
+              "corrplot",
+              "rstatix",
+              "networktools",
+              "nnet",
+              "bootnet",
+              "caret",
+              "Matrix",
+              "qgraph",
+              "NetworkComparisonTest",
+              "tidyverse")
+package_check(packages)
 ```
 
 Retrieve the recent date
@@ -42,8 +58,14 @@ date
 # COPING GLAD and NBR
 ED_diagnosis_coping_glad_nbr <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/coping_glad_nbr/algorithms/ed_algorithms_diagnostics_coping_glad_nbr_clean.rds")
 
+ED_diagnosis_coping_glad_nbr %>%
+  colnames()
+
 # GLAD
 ED_diagnosis_glad <- readRDS(file = "/Users/helenadavies/King's College London/MT-TNG BioResource EDIT - ilovedata - ilovedata/data/latest_freeze/glad/algorithms/ed_algorithms_diagnostics_glad_clean.rds")
+
+ED_diagnosis_glad %>%
+  colnames()
 ```
 
 # Merge cleaned data
@@ -2268,7 +2290,7 @@ dat_with_selfreport$aan.weight_lost_kg_total_cop[dat_with_selfreport$aan.weight_
 freq(dat_with_selfreport$aan.weight_lost_kg_total_cop)
 ```
 
-Weight before weight loss (COPING GLAD & NBR), u.e., START weight
+Weight before weight loss (COPING GLAD & NBR), i.e., START weight
 ```{r AAN weight before weight loss COPING}
 # Rename / convert to numeric
 dat_with_selfreport$aan.weight_prior_lbs_cop <- dat_with_selfreport$aan.weigh_prior_stone_pounds_cop
@@ -2371,7 +2393,7 @@ freq(dat_with_selfreport$AAN_BMI_cop)
     )
   )
   
-# Remove age outliers
+# Remove BMI outliers
   dat_with_selfreport <- dat_with_selfreport %>%
     mutate(
       AAN_BMI_cop =
@@ -2600,7 +2622,7 @@ dat_with_selfreport <- dat_with_selfreport %>%
           #GLAD
         (  
           (
-            ed.DSM5_AN_atypical_low_BMI_binary == 1 
+            ed.DSM5_AN_atypical_low_BMI_binary_numeric == 1 
           )
         ),
       true = 1,
@@ -2739,6 +2761,96 @@ dat_with_selfreport <- dat_with_selfreport %>%
 
 dat_with_selfreport %>%
   freq(AAN_LOW_BMI)
+```
+
+### Cross-check BMI with AN/AAN status
+#### GLAD
+Adding this chunk to double-check that those who answered the AAN module but had a BMI below 18.5 are counted as AN cases.
+```{r cross-checking BMI with ED status GLAD}
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    BMI_AAN_module_below_18.55_numeric =
+      if_else(
+        condition = AAN_BMI <= 18.55,
+        true = 0,
+        false = 1,
+        missing = NA_real_
+        )
+    )
+
+dat_with_selfreport %>%
+  freq(
+    BMI_AAN_module_below_18.55_numeric,
+    cumul = FALSE,
+    round.digits = 1
+    )
+
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    BMI_AAN_module_below_18.55 =
+      recode_factor(
+        BMI_AAN_module_below_18.55_numeric,
+        `0` = "BMI lower than 18.55 kg/m2",
+        `1` = "BMI higher than 18.55 kg/m2"
+        )
+    )
+
+dat_with_selfreport %>%
+  freq(BMI_AAN_module_below_18.55,
+    cumul = FALSE,
+    round.digits = 1
+    )
+
+# Cross-check
+dat_with_selfreport %>%
+  group_by(BMI_AAN_module_below_18.55) %>%
+  count(AAN_LOWBMI_GLAD)
+```
+
+### Cross-check BMI with AN/AAN status
+#### GLAD COPING/NBR
+Adding this chunk to double-check that those who answered the AAN module but had a BMI below 18.5 are counted as AN cases.
+```{r cross-checking BMI with ED status GLAD COPING/NBR}
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    BMI_AAN_module_below_18.55_numeric_cop =
+      if_else(
+        condition = AAN_BMI_cop <= 18.55,
+        true = 0,
+        false = 1,
+        missing = NA_real_
+        )
+    )
+
+dat_with_selfreport %>%
+  freq(
+    BMI_AAN_module_below_18.55_numeric_cop,
+    cumul = FALSE,
+    round.digits = 1
+    )
+
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(
+    BMI_AAN_module_below_18.55_cop =
+      recode_factor(
+        BMI_AAN_module_below_18.55_numeric_cop,
+        `0` = "BMI lower than 18.55 kg/m2",
+        `1` = "BMI higher than 18.55 kg/m2"
+        )
+    )
+
+dat_with_selfreport %>%
+  freq(BMI_AAN_module_below_18.55_cop,
+    cumul = FALSE,
+    round.digits = 1
+    )
+
+# Cross-check
+dat_with_selfreport %>%
+  group_by(BMI_AAN_module_below_18.55_cop) %>%
+  count(AAN_LOWBMI_COPING)
 ```
 
 ### Check number of overall AN cases for the PGC GWAS [incl. additional cases from AAN module]
@@ -2934,7 +3046,8 @@ exclude_cols_dem <- c("ID",
 dat_nbr_health.id <- dat_nbr_health  %>% 
   drop_na(subjectid) %>% # Drop NAs
   remove_duplicates("subjectid")  %>%
-  add_column(sample = "NBR", .before = "health.inflammatory_bowel_disease_crohns") %>% #create new column 
+  add_column(sample = "NBR", 
+             .before = "health.inflammatory_bowel_disease_crohns") %>% #create new column 
    select(
          ID = subjectid,# ID
          sample,
@@ -2978,7 +3091,8 @@ Select columns
 dat_nbr_AN_screener.id <- dat_nbr_AN_screener  %>% 
   drop_na(subjectid) %>% # Drop NAs
   remove_duplicates("subjectid")  %>%
-  add_column(sample = "NBR", .before = "an.weigh_weighed_people_thought") %>% #create new column 
+  add_column(sample = "NBR", 
+             .before = "an.weigh_weighed_people_thought") %>% #create new column 
    select(
          ID = subjectid,# ID
          sample,
@@ -3076,19 +3190,15 @@ dat_nbr_merged <- dat_nbr_merged %>%
 dat_nbr_merged %>%
   freq(no_BE)
 
-freq(dat_nbr_merged$mhd.none_eds_cop_numeric)
-
-
 # No history of other EDs (self-report)
 dat_nbr_merged <- dat_nbr_merged %>%
   mutate(no_other_ED =
            case_when(
              mhd.suspected_eating_disorder_diagnosed_cop_numeric == 0 | # Never suspected an eating disorder
-               (
-                 (mhd.suspected_eating_disorder_diagnosed_cop_numeric == 1 | # Suspected ED OR
-                  mhd.suspected_eating_disorder_diagnosed_cop_numeric == -888) & # Not sure if suspected eating disorder...
-                   mhd.none_eds_cop_numeric == 1
-                 ) ~ 1 #...suspected but never been diagnosed with an eating disorder
+               
+                 (mhd.suspected_eating_disorder_diagnosed_cop_numeric == -888 & # Not sure if suspected eating disorder...
+                   mhd.none_eds_cop_numeric == 1) #...but never been diagnosed with an eating disorder
+                  ~ 1 
                        )
          )
 
@@ -3241,7 +3351,7 @@ dat_with_selfreport %>%
            BE_narrow_COPING == 1
           )
 
-# 71 people who met broad BE criteria in GLAD but didn't meet narrow BE criteria, but went on to meet it in COPING. Therefore need to also split narrow and broad BE when looking at additional variables
+# 71 people who met broad BE criteria in GLAD but didn't meet narrow BE criteria, but then went on to meet it in COPING. Therefore need to also split narrow and broad BE when looking at assigning additional variables.
 ```
 
 Filter sample out to contain only cases or controls

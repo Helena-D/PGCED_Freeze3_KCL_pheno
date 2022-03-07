@@ -177,43 +177,13 @@ df %>%
   count(BN_MHQ) # 503
 ```
 
-### Psychological over-eating or binge-eating
-NB: This can only be included in PRS. These people should be excluded from controls AND cases.
-```{r MHQ psych overeating or binge eating}
-df <- df %>%
-  mutate(psych_overeating_or_BE_MHQ =
-           case_when(
-          mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_1 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_2 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_3 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_4 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_5 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_6 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_7 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_8 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_9 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_10 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_11 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_12 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_13 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_14 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_15 == "13" |
-           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_16 == "13" ~ 1
-     )
-  )
-
-
-df %>%
-  count(psych_overeating_or_BE_MHQ) #707
-```
-
 Select columns
 ```{r MHQ select columns}
 MHQ_dat <- df %>%
   select(eid,
          AN_MHQ,
-         BN_MHQ,
-         psych_overeating_or_BE_MHQ)
+         BN_MHQ
+         )
 
 # Check
 colnames(MHQ_dat)
@@ -319,7 +289,7 @@ length(unique(hesin_AN$eid))
 
 # Keep only unique IDs
 hesin_AN <- hesin_AN %>% 
-  distinct(eid, .keep_all = TRUE) 
+  distinct(eid, .keep_all = TRUE) # 88
 ```
 
 ```{r HES new dataframe of each disorder atypical anorexia nervosa}
@@ -341,7 +311,7 @@ length(unique(hesin_AAN$eid))
 
 # Keep only unique IDs
 hesin_AAN <- hesin_AAN %>% 
-  distinct(eid, .keep_all = TRUE) 
+  distinct(eid, .keep_all = TRUE) # 5
 ```
 
 ```{r HES new dataframe of each disorder bulimia nervosa}
@@ -363,7 +333,7 @@ length(unique(hesin_BN$eid))
 
 # Keep only unique IDs
 hesin_BN <- hesin_BN %>% 
-  distinct(eid, .keep_all = TRUE) 
+  distinct(eid, .keep_all = TRUE) # 37
 ```
 
 ```{r HES merge by ID}
@@ -384,7 +354,7 @@ hesin_merged_ID %>%
   nrow()
 
 # Check same as nrow
-length(unique(hesin_merged_ID$eid))
+length(unique(hesin_merged_ID$eid)) # 123
 ```
 
 Remove HES data to save memory (only need hesin_merged_ID)
@@ -519,7 +489,7 @@ hesin_neo_ICD9_case <- hesin_neo_ICD9_case %>%
 
 # check no. of rows
 nrow(hesin_neo_ICD9_case)
-# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+# check no. of unique IDs 
 length(unique(hesin_neo_ICD9_case$eid))
 
 hesin_neo_ICD9_case <- hesin_neo_ICD9_case %>% 
@@ -539,7 +509,7 @@ hesin_neo_ICD9_not_case <- hesin_neo_ICD9_not_case %>%
 
 # check no. of rows
 nrow(hesin_neo_ICD9_not_case)
-# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+# check no. of unique IDs 
 length(unique(hesin_neo_ICD9_not_case$eid))
 
 hesin_neo_ICD9_not_case <- hesin_neo_ICD9_not_case %>% 
@@ -564,10 +534,10 @@ hesin_neo_ID %>%
 length(unique(hesin_neo_ID$eid))
 
 hesin_neo_ID %>%
-  count(neoplasms_ICD9)
+  count(neoplasms_ICD9) # 176
 
 hesin_neo_ID %>%
-  count(no_neoplasms_ICD9)
+  count(no_neoplasms_ICD9) # 20281
 ```
 
 ## Malignant neoplasms ICD10
@@ -617,6 +587,9 @@ length(unique(hesin_diag_exclusion_ICD10$eid))
 # Select only unique IDs
 hesin_diag_exclusion_ICD10_ID <- hesin_diag_exclusion_ICD10 %>% 
   distinct(eid, .keep_all = TRUE) 
+
+hesin_diag_exclusion_ICD10_ID %>%
+  count(ICD10_malignant_neo) # 22613
 ```
 
 Identify all data entries NOT of an ICD10 code of malignant neoplasm
@@ -826,7 +799,7 @@ hesin_exclusion_dat <- hesin_exclusion_dat %>%
   )
 
 hesin_exclusion_dat %>%
-  count(HES_exclusion_criteria)
+  count(HES_exclusion_criteria) # 69823
 
 # Identify people with at least one HES data entry
 hesin_exclusion_dat <- hesin_exclusion_dat %>%
@@ -842,7 +815,7 @@ hesin_exclusion_dat <- hesin_exclusion_dat %>%
   )
 
 hesin_exclusion_dat %>%
-  count(HES_data_entry) # Most people have at least one HES data entry (only 68 people do not have any HES data)
+  count(HES_data_entry) # 435465 - Most people have at least one HES data entry (only 68 people do not have any HES data entries)
 ```
 
 Remove dataframes not needed to save memory (only really need "hesin_exclusion_dat")
@@ -908,6 +881,7 @@ Filter out non-cases
 death_data_cases <- death_data_clean %>%
   filter(death_due_to_AN == 1)
 
+length(unique(death_data_cases$eid))
 # Check
 colnames(death_data_cases)
 nrow(death_data_cases)
@@ -916,14 +890,29 @@ nrow(death_data_cases)
 Remove dataframes not needed
 ```{r DEATH remove dataframes to save memory}
 rm(death_data_clean)
+```
+
+```{r DEATH remove dataframes to save memory}
 rm(death_data)
 rm(death_cause)
 gc()
 ```
 
+# Merge data up until this point and save
+```{r merge data up until this point and save}
+dat_interim_to_save <- list(
+  death_data_cases,
+  hesin_exclusion_dat, # incl. info on exclusion cases
+  MHQ_dat_cases
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+```
+
 Save data generated up until this point
 ```{r save dataset}
-!!
+saveRDS(object = dat_interim_to_save, paste0("/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_MHQ_HES_DEATH_case_data.rds"))
 ```
 
 # GP data
@@ -1048,7 +1037,6 @@ gp_clinical <- gp_clinical %>%
 gp_clinical %>%
   count(read3_HO_anorexia_nervosa_2)  # 0
 
-
 # .E49. = Anorexia nervosa and/or AN - Anorexia nervosa
 gp_clinical <- gp_clinical %>%
   mutate(read3_anorexia_nervosa_AN_anorexia_nervosa =
@@ -1089,7 +1077,8 @@ gp_anorexia_nervosa_read3 <- gp_anorexia_nervosa_read3 %>%
 
 # check no. of rows
 nrow(gp_anorexia_nervosa_read3)
-# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+
+# check no. of unique IDs 
 length(unique(gp_anorexia_nervosa_read3$eid))
 
 gp_anorexia_nervosa_read3 <- gp_anorexia_nervosa_read3 %>% 
@@ -1270,9 +1259,9 @@ gp_anorexia_read3_need_excl_criteria %>%
 
 ### GP read 2 code: Anorexia (these will need exclusion criteria AND cross-validation)
 #### Checking codes that are linked to multiple phenotypes
-For the below codes, we need more information to make a decision as to whether to include them as 'anorexia nervosa' cases. This is because a single code is linked to multiple phenotypes, some of which would be considered cases but others that would not be.
+For the below codes, we need more information to make a decision as to whether to include them as 'anorexia nervosa' cases. This is because a single code is linked to multiple phenotypes, some of which would be considered cases but others that would not be. Specifically, these codes include a phenotype which does not even mention the word 'anorexia' but references 'loss of appetite'
 ```{r GP read code 2 anorexia need further information}
-# 1612 = Appetite loss - anorexia OR Anorexia symptom 
+# 1612. = Appetite loss - anorexia OR Anorexia symptom OR Loss of appetite - symptom
 gp_clinical %>%
     filter(read_2 == "1612.") %>%
     count(value1)
@@ -1289,7 +1278,7 @@ Summary 18/02/22: No useful information. Will need to cross-validate with attend
 
 These cases need additional cross-validation as they are more likely to be anorexia in relation to cancer, for example, because of the mention of 'loss of appetite' which is similar to the ICD10 code R360 which is anorexia (not anorexia nervosa)
 ```{r GP read code 2 anorexia need exclusion criteria and additional cross-validation}
-# 1612. = Appetite loss - anorexia OR Anorexia symptom 
+# 1612. Appetite loss - anorexia OR Anorexia symptom OR Loss of appetite - symptom
  gp_clinical <- gp_clinical %>%
    mutate(read2_anorexia_appetite_loss_OR_anorexia_symptom =
             case_when(read_2 == "1612." ~ 1
@@ -1314,7 +1303,7 @@ gp_anorexia_read2_need_excl_criteria_cross_val <- gp_anorexia_read2_need_excl_cr
 
 # check no. of rows
 nrow(gp_anorexia_read2_need_excl_criteria_cross_val)
-# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+# check no. of unique IDs
 length(unique(gp_anorexia_read2_need_excl_criteria_cross_val$eid))
 
 gp_anorexia_read2_need_excl_criteria_cross_val <- gp_anorexia_read2_need_excl_criteria_cross_val %>% 
@@ -1336,7 +1325,7 @@ gp_anorexia_read2_need_excl_criteria_cross_val %>%
 #### First, checking these codes that are linked to multiple phenotypes
 For the below codes, we need more information to make a decision as to whether to include them as 'anorexia nervosa' cases. This is because a single code is linked to multiple phenotypes, some of which would be considered cases but others that would not be.
 ```{r GP read code 3 anorexia need further information}
-# XM07X = Lack of appetite, Anorexia, Off food, No appetite, Anorexic 
+# XM07X = Lack of appetite OR Anorexia OR Off food OR No appetite OR Anorexic 
 gp_clinical %>%
     filter(read_2 == "XM07X") %>%
     count(value1)
@@ -1349,7 +1338,7 @@ gp_clinical %>%
     filter(read_2 == "XM07X") %>%
     count(value3)
 
-# 1612. = Appetite loss: [anorexia] or [anorexia symptom] OR Anorexia symptom OR Appetite loss - anorexia
+# 1612. Appetite loss: [anorexia] or [anorexia symptom] OR Anorexia symptom OR Appetite loss - anorexia OR Loss of appetite OR Loss of appetite - symptom
 gp_clinical %>%
     filter(read_2 == "1612.") %>%
     count(value1)
@@ -1362,7 +1351,7 @@ gp_clinical %>%
     filter(read_2 == "1612.") %>%
     count(value3)
 
-# .1612 = Appetite loss: [anorexia] or [anorexia symptom] OR Anorexia symptom OR Appetite loss - anorexia 
+# .1612 Anorexia symptom OR Appetite loss: [anorexia] or [anorexia symptom] OR Appetite loss - anorexia OR Loss of appetite OR Loss of appetite - symptom
 gp_clinical %>%
     filter(read_2 == ".1612") %>%
     count(value1)
@@ -1379,7 +1368,7 @@ Summary 18/02/22: No useful information. Will need to cross-validate with attend
 
 ```{r GP read code 3 anorexia need exclusion criteria and cross-validation}
 # XM07X = Lack of appetite, Anorexia, Off food, No appetite, Anorexic 
- gp_clinical <- gp_clinical %>%
+gp_clinical <- gp_clinical %>%
    mutate(read3_anorexia_off_food =
             case_when(read_3 == "XM07X" ~ 1
             )
@@ -1388,7 +1377,7 @@ Summary 18/02/22: No useful information. Will need to cross-validate with attend
  gp_clinical %>%
    count(read3_anorexia_off_food)  # 151
  
-# 1612. = Appetite loss: [anorexia] or [anorexia symptom] OR Anorexia symptom OR Appetite loss - anorexia 
+# 1612. =  Appetite loss: [anorexia] or [anorexia symptom] OR Anorexia symptom OR Appetite loss - anorexia OR Loss of appetite OR Loss of appetite - symptom
  gp_clinical <- gp_clinical %>%
    mutate(read3_anorexia_appetite_loss_OR_anorexia_symptom =
             case_when(read_3 == "1612." ~ 1
@@ -1399,15 +1388,15 @@ Summary 18/02/22: No useful information. Will need to cross-validate with attend
  gp_clinical %>%
    count(read3_anorexia_appetite_loss_OR_anorexia_symptom)  # 8
  
-# .1612 = Appetite loss: [anorexia] or [anorexia symptom] OR Anorexia symptom OR Appetite loss - anorexia 
- gp_clinical <- gp_clinical %>%
+# .1612 = Anorexia symptom OR Appetite loss: [anorexia] or [anorexia symptom] OR Appetite loss - anorexia OR Loss of appetite OR Loss of appetite - symptom
+gp_clinical <- gp_clinical %>%
    mutate(read3_anorexia_appetite_loss_OR_anorexia_symptom2 =
             case_when(read_3 == ".1612" ~ 1
             )
    )
  
  
- gp_clinical %>%
+gp_clinical %>%
    count(read3_anorexia_appetite_loss_OR_anorexia_symptom2)  # 0
 ```
 
@@ -1427,7 +1416,8 @@ gp_anorexia_read3_need_excl_criteria_cross_val <- gp_anorexia_read3_need_excl_cr
 
 # check no. of rows
 nrow(gp_anorexia_read3_need_excl_criteria_cross_val)
-# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+
+# check no. of unique IDs 
 length(unique(gp_anorexia_read3_need_excl_criteria_cross_val$eid))
 
 gp_anorexia_read3_need_excl_criteria_cross_val <- gp_anorexia_read3_need_excl_criteria_cross_val %>% 
@@ -1498,7 +1488,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read3_seen_in_eating_disorder_clinic)  # 7
+  count(read3_seen_in_eating_disorder_clinic)  # 12
 ```
 
 Create dataset
@@ -1623,7 +1613,20 @@ gp_clinical <- gp_clinical %>%
 
 gp_clinical %>%
   count(read_2_atypical_bulimia_nervosa) # 2 
+
+# E2751 = Bulimia (non-organic overeating) OR Compulsive eating disorder
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_bulimia_or_compulsive_eating_disorder =
+           case_when(read_2 == "E2751" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_bulimia_or_compulsive_eating_disorder) # 2 
 ```
+
+
+
+
 
 ### GP read code 3 binge eating
 ```{r GP read code 3 binge eating}

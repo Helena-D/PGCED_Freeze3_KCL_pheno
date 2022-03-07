@@ -1,0 +1,1351 @@
+---
+title: "UKB PGCED controls"
+author: "Helena Davies"
+date: "28/02/2022"
+output: html_document
+---
+
+# Controls
+# You need a file with required fields, one per line, no header.
+```{r}
+#Point to the project directory
+project_dir <- "/scratch/datasets/ukbiobank/ukb18177"
+
+#Read the project field-to-name “field finder” file
+f <- ukbkings::bio_field(project_dir)
+
+# inspect the variable metadata
+head(f)
+glimpse(f)
+
+#display the number of baskets included.
+f %>%
+distinct(basket)
+```
+
+# Search for variables required 
+```{r}
+f %>%
+select(name, field) %>%
+page(method = "print")
+```
+
+# Add their field codes to a file, one per line, no header. You can page through the file.
+```{r}
+strings <- c("eid") 
+
+f %>%
+select(field, name) %>%
+filter(str_detect(field,
+                  paste(strings, collapse = "|"))) %>%
+  bio_field_add("small_field_subset.txt")
+```
+
+# Read required fields and save as an rds file in your user directory. Argument out should be a path to your UKB user directory
+```{r}
+bio_phen(
+ project_dir,
+ field = "small_field_subset.txt",
+ out = "small_phenotype_subset"
+)
+```
+
+# Check the size of your file and read in your dataset
+```{r}
+system("ls -lh small_phenotype_subset.rds")
+df <- readRDS("small_phenotype_subset.rds")
+```
+
+# Read in case data
+```{r}
+dat <- readRDS(file = paste0("/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_case_data.rds"))
+
+only_case_dat <- dat %>% 
+  filter(BE_narrow == 1 |
+           BE_broad == 1 |
+           AN_case == 1)
+```
+
+# Filter by ID (i.e., select controls based on not being a case)
+```{r}
+`%!in%` = Negate(`%in%`)
+
+control_dat <- df %>%
+  filter(eid %!in% only_case_dat$eid)
+
+# Check 
+nrow(control_dat) # 500529 (502539 [total UKB] - 2010 [PGCED cases])
+``` 
+
+# Need to apply additional filters
+i.e., Also filter by ANY other eating disorder [include filtering by cases]
+
+Death by AN is included in cases (and therefore automatically not included in controls.) No other death by eating disorders are endorsed other than 'F50.8 Other eating disorders' n = 1
+## Death data (need to also filter out for 'other eating disorder' death cases)
+- Death register - Health-related outcomes
+- Contributory (secondary) causes of death: ICD10
+    - F50.8 Other eating disorders n = 1
+    ```{r DEATH read in data}
+death_cause_diskframe <- bio_record(project_dir, record = "death_cause")
+
+death_cause <- death_cause_diskframe %>%
+    select(eid,
+           cause_icd10
+           ) %>%
+    collect()
+
+nrow(death_cause)
+```
+
+```{r death register not cases not controls}
+# Death due to any other ED
+death_data <- death_cause %>%
+  mutate(death_due_to_any_other_ED =
+           case_when(cause_icd10 == "F508" ~ 1
+            ))
+
+death_data %>%
+  count(death_due_to_any_other_ED)  # 
+```
+  
+```{r filter out cases}
+death_data_not_controls <- death_cause %>%
+  filter(death_due_to_any_other_ED = 1)
+
+death_data_not_controls %>%
+  count(death_due_to_any_other_ED)
+
+control_dat <- control_dat %>%
+  filter(eid %!in% death_data_not_controls$eid)
+```
+  
+    
+## Also filter out these
+Non-cancer illness code, self-reported
+Medical conditions - Verbal interview - Assessment Centre
+neurology/eye/psychiatry --> psychological/psychiatric problem --> substance abuse/dependency --> anorexia/bulimia/other eating disorder (n = 410)
+https://biobank.ndph.ox.ac.uk/showcase/coding.cgi?id=6
+```{r filter out non-cancer illness code verbal interview not cases not controls}
+f %>%
+    filter(field %in% names(df)) %>%
+    select(field, categorical_coding)
+
+cx <- bio_code(project_dir)
+head(cx)
+
+cx %>%
+    filter(Coding == 1470)
+```
+
+## MHQ data
+### Psychological over-eating or binge-eating
+```{r MHQ psych overeating or binge eating}
+df <- df %>%
+  mutate(psych_overeating_or_BE_MHQ =
+           case_when(
+          mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_1 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_2 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_3 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_4 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_5 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_6 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_7 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_8 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_9 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_10 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_11 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_12 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_13 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_14 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_15 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_16 == "13" ~ 1
+     )
+  )
+
+
+df %>%
+  count(psych_overeating_or_BE_MHQ) #707
+```
+
+Filter out cases 
+```{r MHQ filter out cases}
+MHQ_dat_not_controls <- MHQ_dat %>%
+  filter(psych_overeating_or_BE_MHQ == 1)
+
+
+control_dat <- control_dat %>%
+  filter(eid %!in% MHQ_dat_not_controls$eid)
+```
+
+## HES data
+include:
+R63.2 Polyphagia5
+R63.3 Feeding difficulties and mismanagement164 ?
+```{r HES read in diagnosis data}
+hesin_diag_diskframe <- bio_record(project_dir, record = "hesin_diag")
+
+hesin_diag <- hesin_diag_diskframe %>%
+    select(eid,
+           diag_icd9,
+           diag_icd10,
+           ) %>%
+    collect()
+
+nrow(hesin_diag)
+colnames(hesin_diag)
+```
+
+Diagnoses - ICD9
+Decided NOT to exclude ICD9 code of 'anorexia' (7830) as very likely this is cancer-related anorexia.
+```{r ICD9 diagnoses cases not controls}
+# 7836 Polyphagia
+hesin_diag <- hesin_diag %>%
+  mutate(ICD9_polyphagia =
+           case_when(diag_icd9 == "7836" ~ 1
+            ))
+
+hesin_diag %>%
+  count(ICD9_anorexia) 
+```
+
+Diagnoses - ICD10
+Decided NOT to exclude ICD10 code of 'Vomiting associated with other psychological disturbances' (F505) as this does not necessarily meet diagnostic threshold for an eating disorder
+```{r ICD10 diagnoses cases not controls}
+# F50.8 Other eating disorders
+hesin_diag <- hesin_diag %>%
+  mutate(ICD10_other_EDs =
+           case_when(diag_icd10 == "F508" ~ 1
+            ))
+
+hesin_diag %>%
+  count(ICD10_other_EDs) 
+
+# F50.9 Eating disorder, unspecified
+hesin_diag <- hesin_diag %>%
+  mutate(ICD10_eating_disorder_unspecified =
+           case_when(diag_icd10 == "F509" ~ 1
+            ))
+
+hesin_diag %>%
+  count(ICD10_eating_disorder_unspecified) 
+```
+
+Decided NOT to exclude ICD10 code of 'Abnormal weight loss' (R634) or 'Abnormal weight gain' (R635) or 'Insufficient intake of food and water due to self neglect' (R636) as this does not necessarily mean one has an eating disorder.
+```{r ICD10 R63 Symptoms and signs concerning food and fluid intake not cases not controls}
+# R63.2 Polyphagia
+hesin_diag <- hesin_diag %>%
+  mutate(ICD10_polyphagia =
+           case_when(diag_icd10 == "R632" ~ 1
+            ))
+
+hesin_diag %>%
+  count(ICD10_polyphagia) 
+
+# R63.3 Feeding difficulties and mismanagement - need to check Ns and email Cindy
+# hesin_diag <- hesin_diag %>%
+#   mutate(ICD10_feeding_difficulties_and_mismanagement =
+#            case_when(diag_icd10 == "R633" ~ 1
+#             ))
+# 
+# hesin_diag %>%
+#   count(ICD10_feeding_difficulties_and_mismanagement) 
+```
+
+## GP data
+Controls: Any individual who does not have a history of binge eating (narrow or broad definition) AND does not have a history of any eating disorder.
+```{r read in GP data controls}
+gp_clinical_diskframe <- bio_record(project_dir, record = "gp_clinical")
+
+gp_clinical <- gp_clinical_diskframe %>%
+    select(eid,
+           read_2,
+           read_3
+           
+           ) %>%
+    collect()
+
+head(gp_clinical)
+```
+
+### GP read 2 code: Anorexia nervosa and anorexia cases
+```{r GP read code 2 anorexia nervosa}
+# Eu500 = '[X]Anorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read2_Xanorexia_nervosa =
+           case_when(read_2 == "Eu500" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_Xanorexia_nervosa)  # 13
+
+
+# 1467. = 'H/OAnorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read2_HO_anorexia_nervosa =
+           case_when(read_2 == "1467." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_HO_anorexia_nervosa)  # 22
+
+
+# E271. = 'Anorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read2_anorexia_nervosa =
+           case_when(read_2 == "E271." ~ 1
+           )
+  )
+             
+gp_clinical %>%
+  count(read2_anorexia_nervosa)  # 91
+
+
+# R030. = [D]Anorexia - still want to exclude 'anorexia' GP codes even if they do not meet exclusion criteria
+gp_clinical <- gp_clinical %>%
+  mutate(read2_DAnorexia =
+           case_when(read_2 == "R030." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_DAnorexia)  # 54
+
+# R030z = [D]Anorexia
+gp_clinical <- gp_clinical %>%
+  mutate(read2_AnorexiaNOS =
+           case_when(read_2 == "R030z" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_AnorexiaNOS)  # 0
+
+# Add any additional
+```
+
+
+
+
+
+
+### GP read 3 code: Anorexia nervosa and anorexia
+```{r GP read code 3 anorexia nervosa}
+# E271. = 'Anorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read3_anorexia_nervosa =
+           case_when(read_3 == "E271." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_anorexia_nervosa)  # 551
+
+# 1467. = 'H/O: anorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read3_HO_anorexia_nervosa =
+           case_when(read_3 == "1467." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_HO_anorexia_nervosa)  # 38
+
+
+# .1467 = 'H/O: anorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read3_HO_anorexia_nervosa_2 =
+           case_when(read_3 == ".1467" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_HO_anorexia_nervosa_2)  # 0
+
+
+# .E49. = Anorexia nervosa and/or AN - Anorexia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read3_anorexia_nervosa_AN_anorexia_nervosa =
+           case_when(read_3 == ".E49." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_anorexia_nervosa_AN_anorexia_nervosa) # 0
+
+# Eu500 = Anorexia nervosa and/or AN - Anorexia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read3_Eu500_anorexia_nervosa_AN_anorexia_nervosa =
+           case_when(read_3 == "Eu500" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_Eu500_anorexia_nervosa_AN_anorexia_nervosa) # 0
+
+# R030. = [D]Anorexia
+gp_clinical <- gp_clinical %>%
+  mutate(read3_Danorexia =
+           case_when(read_3 == "R030." ~ 1
+           )
+  )
+
+
+gp_clinical %>%
+  count(read3_Danorexia)  # 98
+
+# .R30. [D]Anorexia
+gp_clinical <- gp_clinical %>%
+  mutate(read3_Danorexia2 =
+           case_when(read_3 == ".R30." ~ 1
+           )
+  )
+
+
+gp_clinical %>%
+  count(read3_Danorexia2)  # 0
+
+# R030z = Anorexia NOS
+gp_clinical <- gp_clinical %>%
+  mutate(read3_anorexiaNOS =
+           case_when(read_3 == "R030z" ~ 1
+           )
+  )
+
+
+gp_clinical %>%
+  count(read3_anorexiaNOS)  # 37
+
+#.R30Z [D]Anorexia NOS 
+gp_clinical <- gp_clinical %>%
+  mutate(read3_Danorexia_NOS =
+           case_when(read_3 == ".R30Z" ~ 1
+           )
+  )
+
+
+gp_clinical %>%
+  count(read3_Danorexia_NOS)  # 0
+
+# X76cG = Anorexia symptom
+gp_clinical <- gp_clinical %>%
+  mutate(read3_anorexia_symptom =
+           case_when(read_3 == "X76cG" ~ 1
+           )
+  )
+
+
+gp_clinical %>%
+  count(read3_anorexia_symptom)  # 56
+
+# XE24f = Appetite loss - anorexia
+gp_clinical <- gp_clinical %>%
+  mutate(read3_appetite_loss_anorexia =
+           case_when(read_3 == "XE24f" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_appetite_loss_anorexia)  # 240
+
+# Add any additional
+```
+
+### GP read 2 code: Binge eating
+```{r GP read code 2 binge eating}
+# 1FF.. = 'Binge eating'
+gp_clinical <- gp_clinical %>%
+  mutate(read2_binge_eating =
+           case_when(read_2 == "1FF.." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_binge_eating)  # 10
+
+# 1JZ.. = 'Suspected binge eating disorder'
+gp_clinical <- gp_clinical %>%
+  mutate(read2_suspected_binge_eating_disorder =
+           case_when(read_2 == "1JZ.." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_suspected_binge_eating_disorder)  # 0
+
+# Eu502 = '[X]Bulimia nervosa' OR '[X]Bulimia NOS'X] OR [X]Hyperorexia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_Xbulimia_nervosa_OR_bulimiaNOS_OR_hyperorexia_nervosa =
+           case_when(read_2 == "Eu502" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_Xbulimia_nervosa_OR_bulimiaNOS_OR_hyperorexia_nervosa) # 58
+
+# Eu503 = '[X]Atypical bulimia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_atypical_bulimia_nervosa =
+           case_when(read_2 == "Eu503" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_atypical_bulimia_nervosa) # 2 
+
+# Add any additional
+```
+
+### GP read code 3 binge eating
+```{r GP read code 3 binge eating}
+# Eu502 = [X] (Bulimia nervosa) or (bulimia NOS) or (hyperorexia nervosa) OR [X] (Bulimia nervosa) or (bulimia NOS) or (hyperorexia nervosa)
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_XBN_OR_BN_NOS_OR_hyperorexia_nervosa =
+           case_when(read_3 == "Eu502" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_XBN_OR_BN_NOS_OR_hyperorexia_nervosa) # 28
+
+# X00T1 = 'Atypical bulimia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_atypical_BN =
+           case_when(read_3 == "X00T1" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_atypical_BN) # 4
+
+
+# Eu503 = Atypical bulimia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_atypical_BN2 =
+           case_when(read_3 == "Eu503" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_atypical_BN2) # 0
+
+# Xaav6 = Suspected binge eating disorder
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_suspected_BED =
+           case_when(read_3 == "Xaav6" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_suspected_BED) # 1
+
+# IJZ.. = 'Suspected binge-eating disorder'
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_suspected_BED2 =
+           case_when(read_3 == "IJZ.." ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_suspected_BED2) # 0
+
+
+# XaBZ9: Attempts to counteract effects of bingeing
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_counteract_bingeing =
+           case_when(read_3 == "XaBZ9" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_counteract_bingeing) # 0 
+
+
+# XE1Yk = 'Bulimia nervosa' OR 'BN - Bulimia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_BN =
+           case_when(read_3 == "XE1Yk" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_BN) # 215
+
+# Add any additional
+```
+
+### Filter out cases
+```{r filter out cases}
+gp_cases <- gp_clinical %>%
+  filter(read_3_BN == 1 |
+    read_3_counteract_bingeing == 1 |
+    read_3_suspected_BED2 == 1 |
+    read_3_suspected_BED == 1 |
+    read_3_atypical_BN2 == 1 |
+    read_3_atypical_BN == 1 |
+    read_3_XBN_OR_BN_NOS_OR_hyperorexia_nervosa == 1 |
+    read_2_atypical_bulimia_nervosa == 1 |
+    read_2_Xbulimia_nervosa_OR_bulimiaNOS_OR_hyperorexia_nervosa == 1 |
+    read2_suspected_binge_eating_disorder == 1 |
+    read2_binge_eating == 1 |
+    read3_appetite_loss_anorexia == 1 |
+    read3_anorexia_symptom == 1 |
+    read3_Danorexia_NOS == 1 |
+    read3_anorexiaNOS == 1 |
+    read3_Danorexia2 == 1 |
+    read3_Danorexia == 1 |
+    read3_Eu500_anorexia_nervosa_AN_anorexia_nervosa == 1 |
+    read3_anorexia_nervosa_AN_anorexia_nervosa == 1 |
+    read3_HO_anorexia_nervosa_2 == 1 |
+    read3_HO_anorexia_nervosa == 1 |
+    read3_anorexia_nervosa == 1 |
+    read2_AnorexiaNOS == 1 |
+    read2_DAnorexia == 1 |
+    read2_anorexia_nervosa == 1 |
+    read2_HO_anorexia_nervosa == 1 |
+    read2_Xanorexia_nervosa == 1
+    ) 
+
+gp_cases$GP_cases <- 1
+
+gp_cases <- gp_cases %>%
+  select(eid, 
+         GP_cases)
+
+# check no. of rows
+nrow(gp_cases)
+# check no. of unique IDs
+length(unique(gp_cases$eid))
+
+gp_cases <- gp_cases %>% 
+  distinct(eid,
+           .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_cases %>%
+  nrow()
+
+length(unique(gp_cases$eid))
+
+# Check
+gp_cases %>%
+  count(GP_cases)
+```
+
+### Read 2 GP codes [additional exclusions to cases]
+```{r filter out eating disorder cases}
+# 1614. Excessive eating - polyphagia OR Hyperalimentation - symptom OR Polyphagia symptom
+gp_clinical <- gp_clinical %>%
+  mutate(read2_excessive_eating_polyphagia_hyperalimentation =
+           case_when(read_2 == "1614." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_excessive_eating_polyphagia_hyperalimentation)  
+
+
+# 1FM.. Picky eater OR Fussy eater
+gp_clinical <- gp_clinical %>%
+  mutate(read2_picky_eater_OR_fussy_eater =
+           case_when(read_2 == "1FM.." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_picky_eater_OR_fussy_eater)  
+
+
+# 1FN.. Emotional eating
+gp_clinical <- gp_clinical %>%
+  mutate(read2_emotional_eating =
+           case_when(read_2 == "1FN.." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_emotional_eating)  
+
+# E275. Other and unspecified non-organic eating disorders
+gp_clinical <- gp_clinical %>%
+  mutate(read2_other_unspecified_nonorganic_eating_disorders =
+           case_when(read_2 == "E275." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_other_unspecified_nonorganic_eating_disorders)  
+
+# E2750 Unspecified non-organic eating disorder
+gp_clinical <- gp_clinical %>%
+  mutate(read2_unspecified_nonorganic_eating_disorder =
+           case_when(read_2 == "E2750" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_unspecified_nonorganic_eating_disorder)  
+
+
+# E2752 Pica
+gp_clinical <- gp_clinical %>%
+  mutate(read2_Pica =
+           case_when(read_2 == "E2752" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_Pica)  
+
+# E2753 Psychogenic rumination
+gp_clinical <- gp_clinical %>%
+  mutate(read2_psychogenic_rumination =
+           case_when(read_2 == "E2753" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_psychogenic_rumination)  
+
+
+# E2754 Psychogenic vomiting NOS
+gp_clinical <- gp_clinical %>%
+  mutate(read2_psychogenic_vomiting_NOS =
+           case_when(read_2 == "E2754" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_psychogenic_vomiting_NOS)  
+
+
+# E2756 Non-organic infant feeding disturbance
+gp_clinical <- gp_clinical %>%
+  mutate(read2_nonorganic_loss_of_appetite =
+           case_when(read_2 == "E2756" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_nonorganic_loss_of_appetite)  
+
+
+# E275y Other specified non-organic eating disorder
+gp_clinical <- gp_clinical %>%
+  mutate(read2_other_specified_nonorganic_eating_disorder =
+           case_when(read_2 == "E275y" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_other_specified_nonorganic_eating_disorder)  
+
+
+# E275z Non-organic eating disorder NOS
+gp_clinical <- gp_clinical %>%
+  mutate(read2_nonorganic_eating_disorder_NOS =
+           case_when(read_2 == "E275z" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_nonorganic_eating_disorder_NOS)  
+
+# Eu50. [X]Eating disorders
+gp_clinical <- gp_clinical %>%
+  mutate(read2_XEating_disorders =
+           case_when(read_2 == "Eu50." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_XEating_disorders)  
+
+# Eu501 [X]Atypical anorexia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read2_Xatypical_anorexia_nervosa =
+           case_when(read_2 == "Eu501" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_Xatypical_anorexia_nervosa)
+
+# Eu504 [X]Overeating associated with other psychological disturbances
+gp_clinical <- gp_clinical %>%
+  mutate(read2_overating_psych_disturbances =
+           case_when(read_2 == "Eu504" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_overating_psych_disturbances) 
+
+# Eu504 [X]Overeating associated with other psychological disturbances OR [X]Psychogenic overeating
+gp_clinical <- gp_clinical %>%
+  mutate(read2_overating_psych_disturbances_or_psychogenic_overeating =
+           case_when(read_2 == "Eu504" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_overating_psych_disturbances_or_psychogenic_overeating) 
+
+
+
+# Eu505 [X]Vomiting associated with other psychological disturbances OR [X]Psychogenic vomiting
+gp_clinical <- gp_clinical %>%
+  mutate(read2_vomiting_psych_disturbances_or_psychogenic_vomiting =
+           case_when(read_2 == "Eu505" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_vomiting_psych_disturbances_or_psychogenic_vomiting) 
+
+
+
+# Eu50y [X]Other eating disorders OR [X]Pica in adults OR [X]Psychogenic loss of appetite
+gp_clinical <- gp_clinical %>%
+  mutate(read2_other_EDs_or_pica_or_psychogenic_loss_appetite =
+           case_when(read_2 == "Eu50y" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_other_EDs_or_pica_or_psychogenic_loss_appetite) 
+
+
+# Eu50z [X]Eating disorder, unspecified
+gp_clinical <- gp_clinical %>%
+  mutate(read2_eating_disorders_unspecified =
+           case_when(read_2 == "Eu50z" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_eating_disorders_unspecified) 
+
+
+# Fy05. Nocturnal sleep-related eating disorder
+gp_clinical <- gp_clinical %>%
+  mutate(read2_nocturnal_sleep_related_ED =
+           case_when(read_2 == "Fy05." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_nocturnal_sleep_related_ED) 
+
+
+# 1614. Excessive eating - polyphagia OR Hyperalimentation - symptom OR Polyphagia symptom
+gp_clinical <- gp_clinical %>%
+  mutate(read2_excessive_eating_polyphagia_hyperalimentation =
+           case_when(read_2 == "1614." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_excessive_eating_polyphagia_hyperalimentation) 
+
+
+# R036. Polyphagia
+gp_clinical <- gp_clinical %>%
+  mutate(read2_Polyphagia =
+           case_when(read_2 == "R036." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_Polyphagia) 
+
+# R036z [D]Polyphagia NOS
+gp_clinical <- gp_clinical %>%
+  mutate(read2_DPolyphagia_NOS =
+           case_when(read_2 == "R036z" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_DPolyphagia_NOS) 
+```
+
+### Read 3 GP codes [additional exclusions to cases]
+```{r read 3 GP codes exclusions to cases}
+# 1614. Polyphagia (& [symptom]) or (hyperalimentation - symptom) OR Excessive eating - polyphagia OR Polyphagia symptom
+gp_clinical <- gp_clinical %>%
+  mutate(read3_polyphagia_hyperalimentation_excessive_eating =
+           case_when(read_3 == "1614." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_polyphagia_hyperalimentation_excessive_eating) 
+
+# E275. Other and unspecified non-organic eating disorders
+gp_clinical <- gp_clinical %>%
+  mutate(read3_other_unspecified_nonorganic_eating_disorders =
+           case_when(read_3 == "E275." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_other_unspecified_nonorganic_eating_disorders) 
+
+# E2750 Unspecified non-organic eating disorder
+gp_clinical <- gp_clinical %>%
+  mutate(read3_unspecified_nonorganic_eating_disorder =
+           case_when(read_3 == "E2750" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_unspecified_nonorganic_eating_disorder) 
+
+# E2752 Pica OR Eats abnormal objects
+gp_clinical <- gp_clinical %>%
+  mutate(read3_pica_or_eats_abnormal_objects =
+           case_when(read_3 == "E2752" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_pica_or_eats_abnormal_objects) 
+
+
+# E2753 Psychogenic rumination
+gp_clinical <- gp_clinical %>%
+  mutate(read3_psychogenic_rumination =
+           case_when(read_3 == "E2753" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_psychogenic_rumination) 
+
+
+# E2754 Psychogenic vomiting NOS
+gp_clinical <- gp_clinical %>%
+  mutate(read3_psychogenic_vomiting_NOS =
+           case_when(read_3 == "E2754" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_psychogenic_vomiting_NOS) 
+
+
+# E275y Other specified non-organic eating disorder
+gp_clinical <- gp_clinical %>%
+  mutate(read3_other_specified_nonorganic_eating_disorder =
+           case_when(read_3 == "E275y" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_other_specified_nonorganic_eating_disorder) 
+
+
+# E275z Non-organic eating disorder NOS
+gp_clinical <- gp_clinical %>%
+  mutate(read3_nonorganic_eating_disorder_NOS =
+           case_when(read_3 == "E275z" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_nonorganic_eating_disorder_NOS) 
+
+# Eu50. [X]Eating disorders
+gp_clinical <- gp_clinical %>%
+  mutate(read3_Xeating_disorders =
+           case_when(read_3 == "Eu50." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_Xeating_disorders) 
+
+
+# R036. [D]Polyphagia
+gp_clinical <- gp_clinical %>%
+  mutate(read3_DPolyphagia =
+           case_when(read_3 == "R036." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_DPolyphagia) 
+
+
+# R036z [D]Polyphagia NOS
+gp_clinical <- gp_clinical %>%
+  mutate(read3_DPolyphagia_NOS =
+           case_when(read_3 == "R036z" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_DPolyphagia_NOS) 
+
+
+# X00Sz Atypical anorexia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read3_atypical_anorexia_nervosa =
+           case_when(read_3 == "X00Sz" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_atypical_anorexia_nervosa) 
+
+
+# .R34.  [D]Polyphagia
+gp_clinical <- gp_clinical %>%
+  mutate(read3_DPolyphagia =
+           case_when(read_3 == ".R34." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_DPolyphagia) 
+
+
+# .R34Z [D]Polyphagia NOS
+gp_clinical <- gp_clinical %>%
+  mutate(read3_DPolyphagia_NOS =
+           case_when(read_3 == ".R34Z" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_DPolyphagia_NOS) 
+
+
+# .R341 [D]Hyperalimentation
+gp_clinical <- gp_clinical %>%
+  mutate(read3_DHyperalimentation =
+           case_when(read_3 == ".R341" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_DHyperalimentation) 
+
+
+# X767a Pattern of overeating and vomiting
+gp_clinical <- gp_clinical %>%
+  mutate(read3_pattern_overeating_vomiting =
+           case_when(read_3 == "X767a" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_pattern_overeating_vomiting) 
+
+
+# X767b Eating problem
+gp_clinical <- gp_clinical %>%
+  mutate(read3_eating_problem =
+           case_when(read_3 == "X767b" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_eating_problem) 
+
+
+# XM07d Always eating OR Polyphagia OR Excessive eating OR Constantly eating
+gp_clinical <- gp_clinical %>%
+  mutate(read3_always_eating_polyphagia_excessive_eating_constantly_eating =
+           case_when(read_3 == "XM07d" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_always_eating_polyphagia_excessive_eating_constantly_eating) 
+
+
+# .1614 (Excessive eating - polyphagia [& symptom]) or (hyperalimentation) OR Excessive eating - polyphagia OR Polyphagia symptom
+gp_clinical <- gp_clinical %>%
+  mutate(read3_excessive_eating_polyphagia_hyperalimentation =
+           case_when(read_3 == ".1614" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_excessive_eating_polyphagia_hyperalimentation) 
+
+
+# Eu501  Atypical anorexia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read3_atypical_anorexia_nervosa =
+           case_when(read_3 == "Eu501" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_atypical_anorexia_nervosa) 
+
+
+# XE1bQ Eating disorder: [bulimia - nonorganic] or [psychogenic overeating] or [NOS - psychogenic]) or (pica) or (infant feeding problem) OR Pica OR Infant feeding problem OR Bulimia - nonorganic OR Psychogen. overeating OR Eating disorder NOS - psychog. OR Feeding problem-infant
+gp_clinical <- gp_clinical %>%
+  mutate(read3_BN_psychogenic_overating_pica_infant_feeding_problem =
+           case_when(read_3 == "XE1bQ" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_BN_psychogenic_overating_pica_infant_feeding_problem) 
+
+# XafjT Eating disorder co-occurrent with diabetes mellitus type 1 OR Diabulimia OR ED-DMT1 - Eating disorder-diabetes mellitus type 1
+gp_clinical <- gp_clinical %>%
+  mutate(read3_diabulimia =
+           case_when(read_3 == "XafjT" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_diabulimia) 
+
+
+# .E4D4 Pica OR Infant feeding problem OR Bulimia - nonorganic OR Psychogen. overeating OR Eating disorder NOS - psychog. OR Feeding problem-infant
+gp_clinical <- gp_clinical %>%
+  mutate(read3_pica_infant_feeding_problem_psychogenic_overeating =
+           case_when(read_3 == ".E4D4" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_pica_infant_feeding_problem_psychogenic_overeating) 
+
+
+# X767S Self-induced vomiting to lose weight
+gp_clinical <- gp_clinical %>%
+  mutate(read3_selfinduced_vomiting_to_lose_weight =
+           case_when(read_3 == "X767S" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_selfinduced_vomiting_to_lose_weight) 
+
+
+# X767T Repeated self-induced vomiting
+gp_clinical <- gp_clinical %>%
+  mutate(read3_repeated_selfinduced_vomiting =
+           case_when(read_3 == "X767T" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_repeated_selfinduced_vomiting) 
+
+
+# X767U	Self-induced purging to lose weight
+gp_clinical <- gp_clinical %>%
+  mutate(read3_selfinduced_purging_to_lose_weight =
+           case_when(read_3 == "X767U" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_selfinduced_purging_to_lose_weight) 
+
+
+# X767V	Abuse of drugs to lose weight
+gp_clinical <- gp_clinical %>%
+  mutate(read3_abuse_drugs_to_lose_weight =
+           case_when(read_3 == "X767V" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_abuse_drugs_to_lose_weight) 
+
+
+# X767W	Excessive exercising to lose weight
+gp_clinical <- gp_clinical %>%
+  mutate(read3_excessive_exercise_to_lose_weight =
+           case_when(read_3 == "X767W" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_excessive_exercise_to_lose_weight) 
+
+
+# XE0qa	Excessive eating - polyphagia OR polyphagia
+gp_clinical <- gp_clinical %>%
+  mutate(read3_excessive_eating_polyphagia =
+           case_when(read_3 == "XE0qa" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_excessive_eating_polyphagia) 
+
+
+# XE0uD Excessive eating - polyphagia OR Polyphagia symptom
+gp_clinical <- gp_clinical %>%
+  mutate(read3_excessive_eating_polyphagia2 =
+           case_when(read_3 == "XE0uD" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_excessive_eating_polyphagia2) 
+
+
+# Xa4OP Restricting food intake
+gp_clinical <- gp_clinical %>%
+  mutate(read3_restricting_food_intake =
+           case_when(read_3 == "Xa4OP" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_restricting_food_intake) 
+
+
+# Xa4OQ	Planned food restriction
+gp_clinical <- gp_clinical %>%
+  mutate(read3_planned_food_restriction =
+           case_when(read_3 == "Xa4OQ" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_planned_food_restriction) 
+
+# Xa4OR	Restricting calorie intake
+gp_clinical <- gp_clinical %>%
+  mutate(read3_restricting_calorie_intake =
+           case_when(read_3 == "Xa4OR" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_restricting_calorie_intake) 
+
+
+# Eu505	Vomiting associated with other psychological disturbances
+gp_clinical <- gp_clinical %>%
+  mutate(read3_vomiting_associated_psych_disturbances =
+           case_when(read_3 == "Eu505" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_vomiting_associated_psych_disturbances) 
+
+# Eu50y	[X] Eating disorders: [other] or [pica in adults] or [psychogenic loss of appetite] OR [X]Other eating disorders OR 
+gp_clinical <- gp_clinical %>%
+  mutate(read3_EDs_other_or_pica_psychogenic_loss_appetite =
+           case_when(read_3 == "Eu50y" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_EDs_other_or_pica_psychogenic_loss_appetite) 
+
+# Eu50z	[X]Eating disorder, unspecified
+gp_clinical <- gp_clinical %>%
+  mutate(read3_EDs_unspecified =
+           case_when(read_3 == "Eu50z" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_EDs_unspecified) 
+```
+
+### Filter out cases
+```{r filter out not cases not controls}
+gp_not_cases_not_controls <- gp_clinical %>%
+  filter(
+read2_excessive_eating_polyphagia_hyperalimentation == 1 |
+read2_picky_eater_OR_fussy_eater  == 1 |
+read2_emotional_eating   == 1 |
+read2_other_unspecified_nonorganic_eating_disorders  == 1 |
+read2_unspecified_nonorganic_eating_disorder  == 1 |
+read2_Pica  == 1 |
+read2_psychogenic_rumination  == 1 |
+read2_psychogenic_vomiting_NOS  == 1 |
+read2_nonorganic_loss_of_appetite  == 1 |
+read2_other_specified_nonorganic_eating_disorder  == 1 |
+read2_nonorganic_eating_disorder_NOS  == 1 |
+read2_XEating_disorders  == 1 |
+read2_Xatypical_anorexia_nervosa  == 1 |
+read2_overating_psych_disturbances  == 1 |
+read2_overating_psych_disturbances_or_psychogenic_overeating  == 1 |
+read2_vomiting_psych_disturbances_or_psychogenic_vomiting  == 1 |
+read2_other_EDs_or_pica_or_psychogenic_loss_appetite  == 1 |
+read2_eating_disorders_unspecified  == 1 |
+read2_nocturnal_sleep_related_ED  == 1 |
+read2_excessive_eating_polyphagia_hyperalimentation  == 1 |
+read2_Polyphagia  == 1 |
+read2_DPolyphagia_NOS  == 1 |
+
+read3_polyphagia_hyperalimentation_excessive_eating  == 1 |
+read3_other_unspecified_nonorganic_eating_disorders  == 1 |
+read3_unspecified_nonorganic_eating_disorder  == 1 |
+read3_pica_or_eats_abnormal_objects  == 1 |
+read3_psychogenic_rumination  == 1 |
+read3_psychogenic_vomiting_NOS  == 1 |
+read3_other_specified_nonorganic_eating_disorder  == 1 |
+read3_nonorganic_eating_disorder_NOS  == 1 |
+read3_Xeating_disorders  == 1 |
+read3_DPolyphagia  == 1 |
+read3_DPolyphagia_NOS  == 1 |
+read3_atypical_anorexia_nervosa  == 1 |
+read3_DPolyphagia  == 1 |
+read3_DPolyphagia_NOS  == 1 |
+read3_DHyperalimentation  == 1 |
+read3_pattern_overeating_vomiting  == 1 |
+read3_eating_problem  == 1 |
+read3_always_eating_polyphagia_excessive_eating_constantly_eating  == 1 |
+read3_excessive_eating_polyphagia_hyperalimentation  == 1 |
+read3_atypical_anorexia_nervosa  == 1 |
+read3_BN_psychogenic_overating_pica_infant_feeding_problem  == 1 |
+read3_diabulimia  == 1 |
+read3_pica_infant_feeding_problem_psychogenic_overeating  == 1 |
+read3_selfinduced_vomiting_to_lose_weight  == 1 |
+read3_repeated_selfinduced_vomiting  == 1 |
+read3_selfinduced_purging_to_lose_weight  == 1 |
+read3_abuse_drugs_to_lose_weight  == 1 |
+read3_excessive_exercise_to_lose_weight  == 1 |
+read3_excessive_eating_polyphagia  == 1 |
+read3_excessive_eating_polyphagia2  == 1 |
+read3_restricting_food_intake  == 1 |
+read3_planned_food_restriction  == 1 |
+read3_restricting_calorie_intake  == 1 |
+read3_vomiting_associated_psych_disturbances  == 1 |
+read3_EDs_other_or_pica_psychogenic_loss_appetite  == 1 |
+read3_EDs_unspecified  == 1 
+) 
+
+gp_not_cases_not_controls$GP_not_cases_not_controls <- 1
+
+gp_not_cases_not_controls <- gp_not_cases_not_controls %>%
+  select(eid, 
+         GP_cases)
+
+# check no. of rows
+nrow(gp_not_cases_not_controls)
+# check no. of unique IDs
+length(unique(gp_not_cases_not_controls$eid))
+
+gp_not_cases_not_controls <- gp_not_cases_not_controls %>% 
+  distinct(eid,
+           .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_not_cases_not_controls %>%
+  nrow()
+
+length(unique(gp_not_cases_not_controls$eid))
+
+# Check
+gp_not_cases_not_controls %>%
+  count(GP_not_cases_not_controls)
+```
+
+```{r}
+saveRDS(object = control_dat, file = paste0("/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_control_data.rds"))
+```
+
+
+

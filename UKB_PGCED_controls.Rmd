@@ -5,6 +5,16 @@ date: "28/02/2022"
 output: html_document
 ---
 
+# Set up
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Delete everything in your global environment
+```{r Delete everything in your global environment}
+remove(list = ls())
+```
+
 # Controls
 # You need a file with required fields, one per line, no header.
 ```{r}

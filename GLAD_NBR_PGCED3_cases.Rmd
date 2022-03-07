@@ -3180,7 +3180,7 @@ dat_nbr_merged <- dat_nbr_merged %>%
   mutate(no_BE =
            case_when(
              (
-               be.ate_regard_short_period_cop == "No" | # No history of binge eating
+                be.ate_regard_short_period_cop == "No" | # No history of binge eating
                  (be.ate_regard_short_period_cop == "Yes" & # Have history of binge eating... 
                     be.regularly_occurring_episodes_binge_cop == "No") ~ 1 #...but no loss of control
                        )
@@ -3209,7 +3209,6 @@ dat_nbr_merged %>%
 dat_nbr_merged <- dat_nbr_merged %>%
   mutate(control =
            case_when( 
-             
               no_AN == 1 &
               no_AAN == 1 &
               no_BE == 1 &
@@ -4151,6 +4150,7 @@ dat_AN_final %>%
   saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/AN_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
 ```
 
+# Binge eating 
 ```{r final clean and check of each variable cases}
 dat_BE_broad_final <- dat_BE_broad_final %>%
   mutate(BE_broad =
@@ -4175,7 +4175,8 @@ dat_BE_broad_final %>%
   group_by(BE_broad) %>%
   freq(control)
 ```
-         
+
+# Additional variables        
 ```{r final clean and check of each variable additional variables}
 # age: Check no implausible values
 dat_BE_broad_final %>%
@@ -4235,6 +4236,7 @@ dat_BE_broad_final <- dat_BE_broad_final %>%
            ))
 ```
 
+# Save all data
 ```{r save BE broad dataset}
 dat_BE_broad_final %>% 
   select(ID,
@@ -4253,6 +4255,7 @@ dat_BE_broad_final %>%
   saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/BE_broad_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
 ```
 
+# Checking controls
 ```{r final clean and check of each variable cases}
 dat_BE_narrow_final <- dat_BE_narrow_final %>%
   mutate(BE_narrow =
@@ -4355,7 +4358,7 @@ dat_BE_narrow_final %>%
   saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/BE_narrow_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
 ```
 
-```{r}
+```{r save all final data}
 dat_BE_narrow_final <-  readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/BE_narrow_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
 
 dat_BE_broad_final <-  readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/BE_broad_PGC_GLAD_NBR_COPING_pheno_dat_cleaned.rds")
@@ -4373,6 +4376,24 @@ dat <- dplyr::full_join(dat_AN_final,
                            BE_dat,
                            by = "ID")
 
+
+# check
+dat %>%
+  nrow()
+
+dat %>%
+  colnames()
+
+# Save overall data
+dat %>%
+  select(ID,
+       AN,
+       ANBP,
+       ANR,
+       BE_narrow,
+       BE_broad,
+       control) %>%
+saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/PGC_GLAD_NBR_case_control_all_pheno_070322.rds")
 
 
 dat <- dat %>%
@@ -4399,5 +4420,7 @@ dat_IDs <- dat %>%
   select(ID,
        case_control) %>%
   saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/PGC_GLAD_NBR_case_control_IDs.rds")
+
+
 ```
 

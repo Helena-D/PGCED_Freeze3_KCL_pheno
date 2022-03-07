@@ -1,0 +1,159 @@
+---
+title: "GLAD/NBR file formatting"
+author: "Helena Davies"
+date: "07/03/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Delete everything in your global environment
+```{r Delete everything in your global environment}
+remove(list = ls())
+```
+
+# Read in data
+```{r read in  data}
+dat <- readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/PGC_GLAD_NBR_case_control_all_pheno_070322.rds")
+
+# Check
+dat %>%
+  colnames()
+
+dat %>%
+  nrow()
+```
+
+# Controls = 0, case = 1
+Regenie: for binary traits, must be coded as 0=control, 1=case, NA=missing unless using --1
+```{r coding AN for regenie}
+dat <- dat %>%
+  mutate(AN =
+           case_when(AN == 1 |
+                     ANBP == 1 |
+                     ANR == 1  ~ 1, # Case
+                     
+                     control ==1 ~ 0, # Controls 
+                     
+                     TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
+                     )
+  )
+
+# Check
+dat %>%
+  count(AN)
+```
+```{r coding ANR for regenie}
+dat <- dat %>%
+  mutate(ANR =
+           case_when(ANR == 1  ~ 1, # Case
+                     
+                     control ==1 ~ 0, # Controls 
+                     
+                     TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
+                     )
+  )
+
+# Check
+dat %>%
+  count(ANR)
+```
+```{r coding ANBP for regenie}
+dat <- dat %>%
+  mutate(ANBP =
+           case_when(ANBP == 1  ~ 1, # Case
+                     
+                     control == 1 ~ 0, # Controls 
+                     
+                     TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
+                     )
+  )
+
+# Check
+dat %>%
+  count(ANBP)
+```
+
+```{r coding BE_broad for regenie}
+dat <- dat %>%
+  mutate(BE_broad =
+           case_when(BE_broad == 1 |
+                       BE_narrow == 1 ~ 1, # Case
+                     
+                     control == 1 ~ 0, # Controls 
+                     
+                     TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
+                     )
+  )
+
+# Check
+dat %>%
+  count(BE_broad)
+```
+
+```{r coding BE_narrow for regenie}
+dat <- dat %>%
+  mutate(BE_narrow =
+           case_when(BE_narrow == 1  ~ 1, # Case
+                     
+                     control == 1 ~ 0, # Controls 
+                     
+                     TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
+                     )
+  )
+
+# Check
+dat %>%
+  count(BE_narrow)
+```
+
+```{r coding FID for regenie}
+dat <- dat %>%
+  mutate(FID =
+           case_when(!is.na(ID) ~ ID
+                     )
+  )
+
+# Check
+length(unique(dat$FID))
+```
+
+```{r select variables}
+dat <- dat %>%
+  select(FID,
+         IID = ID,
+         AN,
+         ANR,
+         ANBP,
+         BE_broad,
+         BE_narrow)
+
+# Final checks
+head(dat)
+
+dat %>%
+  count(AN) # 2768
+
+dat %>%
+  count(ANR) # 335
+
+dat %>%
+  count(ANBP) # 424
+
+dat %>%
+  count(BE_broad) # 11,695
+
+dat %>%
+  count(BE_narrow) # 8,887
+```
+
+```{r save as txt file space deliminated}
+write.table(dat,
+            file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/GLAD_NBR_PGCED3_pheno_formatted_070322.txt",
+            col.names=T,
+            row.names = F,
+            quote=F,
+            sep=" ")
+```

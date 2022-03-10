@@ -1,9 +1,10 @@
 ---
-title: "GLAD/NBR file formatting"
+title: 'Charlotte''s Helix: File formatting'
 author: "Helena Davies"
-date: "07/03/2022"
+date: "09/03/2022"
 output: html_document
 ---
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -16,7 +17,7 @@ remove(list = ls())
 
 # Read in data
 ```{r read in  data}
-dat <- readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/PGC_GLAD_NBR_case_control_all_pheno_070322.rds")
+dat <- readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/data_CharlottesHelix_cleaned_case_control2022-03-09.rds")
 
 # Check
 dat %>%
@@ -24,9 +25,6 @@ dat %>%
 
 dat %>%
   nrow()
-
-dat %>%
-  freq(control)
 ```
 
 # Controls = 0, case = 1
@@ -38,7 +36,7 @@ dat <- dat %>%
                      ANBP == 1 |
                      ANR == 1  ~ 1, # Case
                      
-                     control == 1 ~ 0, # Controls 
+                     control_final == 1 ~ 0, # control_finals 
                      
                      TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
                      )
@@ -48,12 +46,13 @@ dat <- dat %>%
 dat %>%
   count(AN)
 ```
+
 ```{r coding ANR for regenie}
 dat <- dat %>%
   mutate(ANR =
            case_when(ANR == 1  ~ 1, # Case
                      
-                     control ==1 ~ 0, # Controls 
+                     control_final == 1 ~ 0, # Controls 
                      
                      TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
                      )
@@ -63,12 +62,13 @@ dat <- dat %>%
 dat %>%
   count(ANR)
 ```
+
 ```{r coding ANBP for regenie}
 dat <- dat %>%
   mutate(ANBP =
            case_when(ANBP == 1  ~ 1, # Case
                      
-                     control == 1 ~ 0, # Controls 
+                     control_final == 1 ~ 0, # Controls 
                      
                      TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
                      )
@@ -83,9 +83,9 @@ dat %>%
 dat <- dat %>%
   mutate(BE_broad =
            case_when(BE_broad == 1 |
-                       BE_narrow == 1 ~ 1, # Case
+                      BE_narrow == 1 ~ 1, # Case
                      
-                     control == 1 ~ 0, # Controls 
+                     control_final == 1 ~ 0, # Controls 
                      
                      TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
                      )
@@ -101,7 +101,7 @@ dat <- dat %>%
   mutate(BE_narrow =
            case_when(BE_narrow == 1  ~ 1, # Case
                      
-                     control == 1 ~ 0, # Controls 
+                     control_final == 1 ~ 0, # Controls 
                      
                      TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
                      )
@@ -137,26 +137,27 @@ dat <- dat %>%
 head(dat)
 
 dat %>%
-  count(AN) # 2768
+  count(AN) # 635
 
 dat %>%
-  count(ANR) # 335
+  count(ANR) # 199
 
 dat %>%
-  count(ANBP) # 424
+  count(ANBP) # 360
 
 dat %>%
-  count(BE_broad) # 11,695
+  count(BE_broad) # 356
 
 dat %>%
-  count(BE_narrow) # 8,887
+  count(BE_narrow) # 204
 ```
 
 ```{r save as txt file space deliminated}
 write.table(dat,
-            file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/GLAD_NBR_PGCED3_pheno_formatted_090322.txt",
+            file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/CH_AN25K_PGCED3_pheno_formatted_090322.txt",
             col.names=T,
             row.names = F,
             quote=F,
             sep=" ")
 ```
+

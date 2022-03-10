@@ -10,14 +10,33 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Call in library script
-```{r source files}
-source("./libraries.R")
+# Set up workspace
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      comment=NA,
+                      prompt=FALSE,
+                      cache=FALSE)
+```
+
+Delete everything in your global environment
+```{r Delete everything in your global environment}
+remove(list = ls())
 ```
 
 Call in functions script
-```{r source files}
-source("./functions.R")
+```{r Source functions}
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/add_numeric.R")
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/remove_duplicates.R")
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/package_check.R")
+```
+
+Use package_check to install and load dependencies
+Load tidyverse last
+```{r Install load dependencies}
+packages <- c("summarytools",
+               "psych",
+               "tidyverse")
+package_check(packages)
 ```
 
 Retrieve the recent date
@@ -31,26 +50,39 @@ Read in data
 dat_raw <- read_csv("../data_raw/charlottes_helix/CH_+_AN25K_data_merge_04.06.csv")
 
 # Check
-colnames(dat_raw)
-
-dat_raw <- dat_raw %>%
-  rename(ID = participant_id)
+dat_raw %>%
+  colnames()
 ```
 
 ```{r Select columns}
 dat <- dat_raw %>% 
   select(
-    "ID",
+    "ID" = "participant_id",
     "gender" = "gender_x",
     "Study_x",
     "visit_barcode_x",
-    "visit_notes_x",                                                                                                                                                     "visit_barcode_2_x",                                                                                                                                                 "visit_notes_2_x",                                                                                                                                                   "visit_barcode_3_x",                                                                                                                                                 "visit_notes_3_x",                                                                                                                                                   "registration_notes_x",                                                                                                                                              "No Known Diagnosis_x",                                                                                                                                              "Anorexia Nervosa_x",                                                                                                                                                "Bulimia Nervosa_x",                                                                                                                                                 "ED-NOS_x",                                                                                                                                                          "Binge Eating_x",
+    "visit_notes_x",
+    "visit_barcode_2_x",
+    "visit_notes_2_x",
+    "visit_barcode_3_x",
+    "visit_notes_3_x",
+    "registration_notes_x",
+    "No Known Diagnosis_x",
+    "Anorexia Nervosa_x",
+    "Bulimia Nervosa_x",
+    "ED-NOS_x",
+    "Binge Eating_x",
     "registration_notes.1_x",
     "core_primdiag_x",
     "core_primdiag_date_x",
     "core_secdiag_x",
     "core_bmi_x",
-    "registration_notes_y",                                                                                                                                              "No Known Diagnosis_y",                                                                                                                                              "Anorexia Nervosa_y",                                                                                                                                                "Bulimia Nervosa_y",                                                                                                                                                 "ED-NOS_y",                                                                                                                                                          "Binge Eating_y",
+    "registration_notes_y",
+    "No Known Diagnosis_y",
+    "Anorexia Nervosa_y",
+    "Bulimia Nervosa_y",
+    "ED-NOS_y",
+    "Binge Eating_y",
     "core_primdiag_y",
     "core_primdiag_date_y",
     "core_secdiag_y",
@@ -240,6 +272,7 @@ nrow(missing_dat_no_dup)
 write.csv(missing_dat_no_dup,
             file = "missing_dat_IDs.csv")
 ```
+146 people with all missing data.
 
 # Narrowly defined binge eating: All individuals who meet any of the following criteria will be coded as “BE_narrow = 1”:
 
@@ -253,7 +286,8 @@ narrowly defined binge eating).
 Clean frequency per week binge eating ready for BE_narrow and BE_broad algorithms
 ```{r Clean freq per week binge eating}
 # Check
-freq(dat$NUMBER_freq_binge_per_week)
+dat %>%
+  freq(NUMBER_freq_binge_per_week)
 
 # Convert values written as a range to lowest number
 dat$NUMBER_freq_binge_per_week[dat$NUMBER_freq_binge_per_week == "14-21"] <- "14"
@@ -278,7 +312,15 @@ dat$NUMBER_freq_binge_per_week[dat$NUMBER_freq_binge_per_week == "04-May"] <- "4
 dat$NUMBER_freq_binge_per_week[dat$NUMBER_freq_binge_per_week == "Jul-13"] <- "7"
 
 # Check again
-freq(dat$NUMBER_freq_binge_per_week)
+dat %>%
+  freq(NUMBER_freq_binge_per_week)
+
+# Change to numeric
+dat$NUMBER_freq_binge_per_week_numeric <- as.numeric(dat$NUMBER_freq_binge_per_week)
+
+# Check again
+dat %>%
+  freq(NUMBER_freq_binge_per_week_numeric)
 ```
 
 1. Eating an unusually large amount of food in an unusually short period of time with loss of control when doing so, and these episodes occurred on average at least once a week for at least three months (= DSM-5 frequency and duration criteria);
@@ -288,7 +330,7 @@ dat <- dat %>%
            case_when(
             
              # "Have you ever had eating binges when you ate what most people would regard as an unusually large amount of food in a short period of time?"
-             binge_eating == "Yes" &
+             (binge_eating == "Yes" &
                
                # When you were having eating binges, did you feel that your eating was out of control?
              (out_of_control_bingeing == "Yes, definitely out of control" |
@@ -296,17 +338,19 @@ dat <- dat %>%
                 out_of_control_bingeing == "Yes, a little(slightly) out of control") &
                
                # ...these episodes occurred on average at least once a week for at least three months (= DSM-5 frequency and duration criteria);
-               (NUMBER_freq_binge_per_week >= 1 &
+               (NUMBER_freq_binge_per_week_numeric >= 1 &
                   (DURATION_binge_eating == "3-5 months" |
                      DURATION_binge_eating == "6 months to 1 year" |
-                     DURATION_binge_eating == "Longer than 1 year")) ~ 1
+                     DURATION_binge_eating == "Longer than 1 year"))) ~ 1
              )
          )
 
 # Check
 dat %>%
-  freq(binge_eating_loss_control_DSM5)
+  freq(binge_eating_loss_control_DSM5) 
 ```
+206 people with DSM-5 binge eating.
+
 
 2. Has received a clinical diagnosis of BN or BED via hospital or register records or a structured clinical interview OR 
 
@@ -345,12 +389,13 @@ dat <- dat %>%
 dat %>%
   freq(diagnosis_BN)
 ```
+12 people with a diagnosis of BN from clinician.
+
 3. Has a self-reported diagnosis of BN or BED, with specification that this has been confirmed by a healthcare professional
 
-For Charlotte's Helix, the variables 'Bulimia Nervosa_x' and 'Bulimia Nervosa_y': this could include diagnoses but also not diagnosed individuals..
+For Charlotte's Helix, the variables 'Bulimia Nervosa_x' and 'Bulimia Nervosa_y' *could* include diagnoses but could also include *not diagnosed* individuals..
 Only knew if it were a clinical diagnosis if came from a clinical sample (e.g., Bethlem) possibly BOA depending on recruitment methods or 100k project, but this is only for AN. For BN/BED, Henry wouldn't count these people.
 ```{r Text box diagnosis - needs to check if clinical}
-
 dat <- dat %>%
   mutate(text_box_self_reported_BN =
            case_when(`Bulimia Nervosa_x` == 1 |
@@ -361,8 +406,8 @@ dat <- dat %>%
 # Check
 dat %>%
   freq(text_box_self_reported_BN) 
-
 ```
+28 people self-reported BN.
 
 “reg info” = diagnosis or extra info from sign up (registration_notes_x, registration_notes.1_x, registration_notes_y)
 Have looked through all of these and flagged any ICD codes related to BN or BED, or any notes that might confirm a clinical diagnosis by a healthcare professional
@@ -380,6 +425,7 @@ dat <- dat %>%
 dat %>%
   freq(reg_info_BN)
 ```
+2 people with clinically-confirmed diagnosis of BN.
 
 Narrowly defined binge eating
 ```{r PGC narrowly defined binge eating}
@@ -396,6 +442,8 @@ dat <- dat %>%
 dat %>%
   freq(BE_narrow)
 ```
+215 people with BE narrow.
+
 
 # Broadly defined binge eating: All individuals who meet any of the following criteria and will be coded as “BE_broad = 1”:
 
@@ -424,6 +472,8 @@ dat <- dat %>%
 dat %>%
   freq(binge_eating_loss_control)
 ```
+353 people with broad binge eating (i.e., without freq and dur criteria)
+
 
 2. If binge eating (BE) is assessed in a single question like: “Have you ever experienced binge eating?” and is endorsed, they will be considered to have BE and be included in the primary BE GWAS. If the question combines several descriptors such as “Have you ever experienced binge eating OR other terms like psychological overeating, compulsive eating, emotional eating, etc.”), it should not be used for the primary BE GWAS but can be used for PRS analyses.
 ```{r BE assessed in single question BE_broad}
@@ -440,11 +490,13 @@ dat %>%
 dat %>%
   freq(diagnosis_BN)
 ```
+12 people have self-reported diagnosis of BN.
 
-“reg info” = diagnosis or extra info from sign up. If it mentions the word 'diagnosis' or 'dx', then I will include as BE_broad
-+++ Need to re-do these! double check spacing
 
-# Diagnosis:    Previous Anorexia and Bulemia, Diagnosis: Bulimia Nervosa, Diagnosis: Bulimia Nervosa  Anorexia (Recovered), Dignosis: Anorexia Nervosa and Bulemia Nervosa 3 years ago, Dx: Anorexia, Bulimia, BPD, Depression, Anxiety, Alcohol misuse; Dx: Binge eating disorder, Dx: Binge Eating Disorder, Dx: Bulimia Nervosa, Dx: F50.2 Bulimia Nervosa. Self reported Diagnosis  Bulimia, Hospitalised for anorexia, ( co-mobid) depression, recently diagnosed with ASD
+# “reg info” 
+= diagnosis or extra info from sign up. If it mentions the word 'diagnosis' or 'dx', then I will include as BE_broad
+
+I will count the following as a diagnosis:    Previous Anorexia and Bulemia, Diagnosis: Bulimia Nervosa, Diagnosis: Bulimia Nervosa  Anorexia (Recovered), Dignosis: Anorexia Nervosa and Bulemia Nervosa 3 years ago, Dx: Anorexia, Bulimia, BPD, Depression, Anxiety, Alcohol misuse; Dx: Binge eating disorder, Dx: Binge Eating Disorder, Dx: Bulimia Nervosa, Dx: F50.2 Bulimia Nervosa. Self reported Diagnosis  Bulimia, Hospitalised for anorexia, ( co-mobid) depression, recently diagnosed with ASD
 ```{r Reg info - diagnosis or extra info BE_broad}
 # Reg notes (registration_notes_x, registration_notes.1_x, registration_notes_y) are all the same so only need to look at one. 
 dat %>%
@@ -468,6 +520,8 @@ dat <- dat %>%
 dat %>%
   freq(reg_info_BN_broad)
 ```
+21 people have a diagnosis of bulimia or binge-eating disorder recorded in the reg notes.
+
 
 Broadly defined binge eating
 ```{r PGC broadly defined binge eating}
@@ -485,6 +539,9 @@ dat <- dat %>%
 dat %>%
   freq(BE_broad)
 ```  
+380 people are BE broad.
+
+
 
 # Anorexia phenotypes
 ## 1. Visit notes
@@ -541,6 +598,8 @@ dat <- dat %>%
 dat %>%
   freq(visit_notes_AN_final)
 ```
+41 people meet AN criteria in the visit notes.
+
 ## 2. Algorithm-derived
 
 ### Work out BMI at low weight
@@ -564,7 +623,7 @@ head(dat$height_m_low_weight)
 head(dat$AN_BMI)
 
 # Look at min and max
-descr(dat$AN_BMI) # All values between 8 and 38 so are all plausible.
+descr(dat$AN_BMI) # All values are between 8 and 38 so are all plausible.
 ```
   
 ### ANBP algorithm
@@ -648,6 +707,8 @@ dat$DSM5_ANBP_binary <-
 # Summary
 freq(dat$DSM5_ANBP_binary)
 ```
+383 people meet criteria for ANBP via this algorithm.
+
 
 ### AN restricting algorithm 
 A. Restriction of energy intake relative to requirements,leading to a significantly low body weight in the context of age, sex, developmental trajectory, and physical health. Significantly low weight is defined as a weight that is less than minimally normal or, for children and adolescents, less than that minimally expected.
@@ -706,7 +767,7 @@ dat$DSM5_AN_restricting_binary_numeric <-
      
      #...or purging behavior (i.e., self-induced vomiting or the misuse of laxatives, diuretics, or enemas)...  
       
-        # NB: Participants appear to either be, for example for `selfinduced_vomiting_at_low weight`, "Making yourself vomit" or NA. Wouldn't normally assume that a value of missing is indicative of a lack of endorsement, but in this case (for the purging behaviours at low weight) there doesn't seem to be another option. 
+        # NB: Response for `selfinduced_vomiting_at_low weight`, for example, are "Making yourself vomit" or NA. Wouldn't normally assume that a value of missing is indicative of a lack of endorsement, but in this case (for the purging behaviours at low weight) there doesn't seem to be another option. 
      (
        (self_induced_vomiting == "Never" |  # Never self-induced vomiting
      is.na(`selfinduced_vomiting_at_low weight`))  & #...has but not indicated to have done this at low weight
@@ -742,6 +803,7 @@ dat %>%
   filter(DSM5_AN_binge_purge_binary_numeric == 1 &
           DSM5_AN_restricting_binary_numeric == 1 ) # checking this is 0 as it should be!
 ```
+223 people meet criteria for ANR via this algorithm.
 
 ### AN no subtype algorithm 
 A. Restriction of energy intake relative to requirements,leading to a significantly low body weight in the context of age, sex, developmental trajectory, and physical health. Significantly low weight is defined as a weight that is less than minimally normal or, for children and adolescents, less than that minimally expected.
@@ -803,6 +865,9 @@ dat$DSM5_AN_binary <-
 # Summary
 freq(dat$DSM5_AN_binary)
 ```
+611 meet criteria for AN via this algorithm.
+
+
 ## 3. Self-reported AN, but not necessarily a diagnosis. 
 NB: However, Gerome has said that all AN cases within Charlotte's Helix can be thought of as self-reported clinical diagnoses.
 ```{r Text box self-reported AN}
@@ -817,6 +882,7 @@ dat <- dat %>%
 dat %>%
   freq(text_box_self_reported_AN)
 ```
+115 people self-reported AN.
 
 ## 4. AN registration notes
 Diagnosis of AN mentioned in registration notes
@@ -896,6 +962,8 @@ dat <- dat %>%
 dat %>%
   freq(AN_registration)
 ```
+84 people meet criteria for AN in the reg notes.
+
 
 ## 5. AN reported in primary diagnosis or secondary diagnosis
 ```{r Core primary and secondary diagnosis AN}
@@ -938,6 +1006,7 @@ dat <- dat %>%
 dat %>%
   freq(prim_second_diag_AN)
 ```
+43 people meet criteria for AN in the primary or secondary diagnosis.
 
 ANBP in registration
 ```{r ANBP in registration}
@@ -951,6 +1020,7 @@ dat <- dat %>%
 dat %>%
   freq(ANBP_registration)
 ```
+2 people meet ANBP criteria in reg notes.
 
 ANR in registration
 ```{r ANBP in registration}
@@ -966,7 +1036,9 @@ dat <- dat %>%
 dat %>%
   freq(ANR_registration)
 ```
-## 6. Receruitment into 100,000 Genomes Project 
+3 people meet ANR criteria in reg notes.
+
+## 6. Recruitment into 100,000 Genomes Project 
 These people were recruited based on having severe and enduring AN with a BMI of below 16. We can assume that they have a diagnosis of AN.
 ```{r 100,000 genome project}
  dat <- dat %>%
@@ -1123,6 +1195,8 @@ These people were recruited based on having severe and enduring AN with a BMI of
 dat %>%
   freq(AN_100K)
 ```
+53 people were recruited in 100k Genomes Project.
+
 
 ## 7. BOA sample is also a clinical anorexia sample
 ```{r BOA sample}
@@ -1139,6 +1213,8 @@ dat <- dat %>%
 dat %>%
   freq(BOA_AN)
 ```
+51 people meet criteria for AN via being a BOA sample.
+
 
 # PGC AN final algorithms
 ## PGC AN (no subtype) algorithm
@@ -1163,6 +1239,7 @@ dat <- dat %>%
 dat %>%
   freq(AN_case)
 ```
+700 people are an AN case for PGC.
 
 PGC ANR algorithm
 ```{r PGC ANR algorithm}
@@ -1171,7 +1248,7 @@ dat <- dat %>%
            case_when(DSM5_AN_restricting_binary_numeric == 1 |
                       ANR_registration == 1 & 
                        (ANBP_registration != 1 &
-                        DSM5_AN_binge_purge_binary_numeric != 1)  ~ 1
+                        DSM5_AN_binge_purge_binary_numeric != 1)  ~ 1 # ANBP > ANR (as soon as you have binged/purged during low weight, you are ANBP)
                      )
          )
 
@@ -1179,6 +1256,7 @@ dat <- dat %>%
 dat %>%
   freq(ANR_case)
 ```
+223 people are ANR case.
   
 PGC ANBP algorithm
 ```{r PGC ANBP algorithm}
@@ -1193,6 +1271,8 @@ dat <- dat %>%
 dat %>%
   freq(ANBP_case)
 ```
+384 people are ANBP case.
+
 
 # Need these additional variables:
 • Age (i.e., when assessed); **NA**
@@ -1514,37 +1594,23 @@ dat.final.no.dup %>%
          BE_narrow)
 ```
 
-```{r Save dataset}
-colnames(dat.final.no.dup)
+# Bind with control data from NBR
+```{r bind with NBR controls}
+# Read in control data
+CH_controls <- readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/Charlottes_Helix_controls_090322.rds") 
 
-saveRDS(object = dat.final.no.dup, file = paste0("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/data.CharlottesHelix.cleaned", date, ".rds"))
+# Convert IDs to character to enable bind
+dat.final.no.dup$ID <- as.character(dat.final.no.dup$ID)
+  
+# Bind data
+dat_final <- dat.final.no.dup %>%
+  bind_rows(CH_controls)
+
+dat_final %>%
+  colnames()
 ```
 
-# Save as text pheno file
-```{r save as text file}
-# Create FID column
-dat.final.no.dup$FID <- dat.final.no.dup$ID
-
-dat.final.no.dup %>%
-  select(IID = ID,
-         FID,
-         BE_narrow,
-         BE_broad,
-         AN,
-         ANR,
-         ANBP) %>%
-  write.table(file = "../pheno_files/charlottes_helix/PGC_3_Charlottes_Helix_cases.txt",
-              sep = "")
-
-dat.final.no.dup %>%
-  select(IID = ID,
-         FID,
-         BMI_time_of_assessment,
-         BMI_max_lifetime,
-         BMI_min_ED_related,
-         gender,
-         BE_age_of_onset,
-         AN_age_of_onset) %>%
-  write.table(file = "../pheno_files/charlottes_helix/PGC_3_Charlottes_Helix_covariates.txt",
-              sep = "")
+# Save case and control data
+```{r Save dataset}
+saveRDS(object = dat_final, file = paste0("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/data_CharlottesHelix_cleaned_case_control", date, ".rds"))
 ```

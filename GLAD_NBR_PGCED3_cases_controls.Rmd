@@ -29,21 +29,8 @@ Use package_check to install and load dependencies
 Load tidyverse last
 ```{r Install load dependencies}
 packages <- c("summarytools",
-              "sjlabelled",
-              "Amelia",
-              "gtsummary",
-              "janitor",
-              "psych",
-              "corrplot",
-              "rstatix",
-              "networktools",
-              "nnet",
-              "bootnet",
-              "caret",
-              "Matrix",
-              "qgraph",
-              "NetworkComparisonTest",
-              "tidyverse")
+               "psych",
+               "tidyverse")
 package_check(packages)
 ```
 
@@ -3342,6 +3329,38 @@ dat_with_selfreport %>%
   freq(control_final)
 ```
 
+# Set aside 1400 controls for Charlotte's Helix
+```{r 1400 controls for Charlottes Helix}
+# Random selection
+set.seed(123)
+
+CH_controls <- dat_with_selfreport %>%
+  filter(control_final == 1) %>%
+  sample_n(1400) 
+
+# Save dataset
+CH_controls %>%
+  saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/Charlottes_Helix_controls_090322.rds") 
+
+# Create new GLAD/NBR dataset without controls used in Charlotte's Helix
+`%!in%` = Negate(`%in%`)
+
+dat_with_selfreport <- dat_with_selfreport %>%
+  mutate(control_final =
+           case_when(
+             control_final == 1 &
+             ID %!in% CH_controls$ID ~ 1, # Set to being a control 
+             
+             control_final == 1 &
+             ID %in% CH_controls$ID ~ 0, # No longer a control (in this dataset)
+                        )
+         )
+
+# Check (should now be 1400 fewer controls than previously)
+dat_with_selfreport %>%
+  freq(control_final)
+```
+
 # GLAD participants: Selecting relevant additional variable
 ```{r broad vs narrow BE in GLAD and GLAD COPING}
 dat_with_selfreport %>%
@@ -3938,6 +3957,8 @@ case_control_dat_BE_narrow %>%
   freq(sex_cop)
 ```
 
+
+
 # Select variables for each dataset
 ```{r select variables for each dataset}
 dat_AN_final <- case_control_dat_AN %>%
@@ -4420,7 +4441,5 @@ dat_IDs <- dat %>%
   select(ID,
        case_control) %>%
   saveRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/PGC_GLAD_NBR_case_control_IDs.rds")
-
-
 ```
 

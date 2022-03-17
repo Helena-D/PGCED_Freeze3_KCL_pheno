@@ -32,7 +32,7 @@ library(tidyverse)
 # Read in data
 ## Case
 ```{r read in case data}
-case_dat <- readRDS(file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_case_only_data.rds")
+case_dat <- readRDS(file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED_Freeze3_final_files/UKB_PGCED3_only_case_data_070322.rds")
 
 # Check
 case_dat %>%
@@ -44,7 +44,7 @@ case_dat %>%
 
 ## Control
 ```{r read in control data}
-control_dat <- readRDS(file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_control_data.rds")
+control_dat <- readRDS(file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED_Freeze3_final_files/UKB_PGCED3_control_data_100322.rds")
 
 # Check
 control_dat %>%
@@ -52,6 +52,18 @@ control_dat %>%
 
 control_dat %>%
   nrow()
+
+# Create control variable
+control_dat$control <- 1
+
+# Check
+control_dat %>%
+  count(control)
+
+# Select variables
+control_dat <- control_dat %>%
+  select(eid,
+         control)
 ```
 
 # Merge all data
@@ -63,12 +75,6 @@ dat <- dplyr::full_join(control_dat,
 # Check
 dat %>%
   colnames()
-
-dat <- dat %>%
-  select(eid,
-         BE_narrow,
-         BE_broad,
-         AN_case)
 ```
 
 # Controls = 0, case = 1
@@ -78,7 +84,7 @@ dat <- dat %>%
   mutate(AN =
            case_when(AN_case == 1 ~ 1, # Case
                      
-                     eid %in% control_dat$eid ~ 0, # Controls 
+                     control == 1 ~ 0, # Controls 
                      
                      TRUE ~ NA_real_ # Neither controls nor cases (i.e., BE cases)
                      )
@@ -94,7 +100,7 @@ dat <- dat %>%
   mutate(BE_broad =
            case_when(BE_broad == 1 ~ 1, # Case
                      
-                     eid %in% control_dat$eid ~ 0, # Controls 
+                      control == 1 ~ 0, # Controls 
                      
                      TRUE ~ NA_real_ # Neither controls nor cases (i.e., AN cases)
                      )
@@ -110,7 +116,7 @@ dat <- dat %>%
   mutate(BE_narrow =
            case_when(BE_narrow == 1 ~ 1, # Case
                      
-                     eid %in% control_dat$eid ~ 0, # Controls 
+                      control == 1 ~ 0, # Controls 
                      
                      TRUE ~ NA_real_ # Neither controls nor cases (i.e., AN cases or BE broad)
                      )
@@ -155,9 +161,264 @@ dat %>%
 
 ```{r save as txt file space deliminated}
 write.table(dat,
-            file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_final_case_control_dat.txt",
+            file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_final_case_control_dat_100322.txt",
             col.names=T,
             row.names = F,
+            quote=F,
+            sep=" ")
+```
+
+# Find centre information
+```{r read in data for centre info}
+#Point to the project directory
+project_dir <- "/scratch/datasets/ukbiobank/ukb18177"
+
+#Read the project field-to-name “field finder” file
+f <- ukbkings::bio_field(project_dir)
+
+# inspect the variable metadata
+head(f)
+glimpse(f)
+
+#display the number of baskets included.
+f %>%
+distinct(basket)
+```
+
+# Search for variables required 
+```{r search for centre information}
+f %>%
+select(name, field) %>%
+page(method = "print")
+```
+
+# Add their field codes to a file, one per line, no header. You can page through the file.
+```{r}
+strings <- c("eid",
+             "54") # UKB assessment centre
+
+f %>%
+select(field, name) %>%
+filter(str_detect(field,
+                  paste(strings, collapse = "|"))) %>%
+  bio_field_add("small_field_subset.txt")
+```
+
+# Read required fields and save as an rds file in your user directory. Argument out should be a path to your UKB user directory
+```{r}
+bio_phen(
+ project_dir,
+ field = "small_field_subset.txt",
+ out = "small_phenotype_subset"
+)
+```
+
+# Check the size of your file and read in your dataset
+```{r}
+system("ls -lh small_phenotype_subset.rds")
+df <- readRDS("small_phenotype_subset.rds")
+```
+
+Rename columns from the default UKB field names to the descriptive names used in the field-to-name “field finder” name column.
+
+0	Initial assessment visit (2006-2010) at which participants were recruited and consent given
+1	First repeat assessment visit (2012-13)
+2	Imaging visit (2014+)
+3	First repeat imaging visit (2019+)
+
+
+11012	Barts
+11021	Birmingham
+11011	Bristol
+11008	Bury
+11003	Cardiff
+11024	Cheadle (revisit)
+11020	Croydon
+11005	Edinburgh
+11004	Glasgow
+11018	Hounslow
+11010	Leeds
+11016	Liverpool
+11001	Manchester
+11017	Middlesborough
+11009	Newcastle
+11013	Nottingham
+11002	Oxford
+11007	Reading
+11014	Sheffield
+10003	Stockport (pilot)
+11006	Stoke
+11022	Swansea
+11023	Wrexham
+11025	Cheadle (imaging)
+11026	Reading (imaging)
+11027	Newcastle (imaging)
+11028	Bristol (imaging)
+```{r rename columns using bio_rename}
+# Initial assessment
+df <- df %>%
+  mutate(centre_initial_assessment =
+           case_when(`54-0.0_ukb37667` == "11012" ~ "Barts",
+                     `54-0.0_ukb37667` == "11012" ~  "Barts",
+                     `54-0.0_ukb37667` == "11021" ~  "Birmingham",
+                     `54-0.0_ukb37667` == "11011" ~  "Bristol",
+                     `54-0.0_ukb37667` == "11008" ~  "Bury",
+                     `54-0.0_ukb37667` == "11003" ~  "Cardiff",
+                     `54-0.0_ukb37667` == "11024" ~  "Cheadle (revisit)",
+                     `54-0.0_ukb37667` == "11020" ~  "Croydon",
+                     `54-0.0_ukb37667` == "11005" ~  "Edinburgh",
+                     `54-0.0_ukb37667` == "11004" ~  "Glasgow",
+                     `54-0.0_ukb37667` == "11018" ~  "Hounslow",
+                     `54-0.0_ukb37667` == "11010" ~  "Leeds",
+                     `54-0.0_ukb37667` == "11016" ~  "Liverpool",
+                     `54-0.0_ukb37667` == "11001" ~  "Manchester",
+                     `54-0.0_ukb37667` == "11017" ~  "Middlesborough",
+                     `54-0.0_ukb37667` == "11009" ~  "Newcastle",
+                     `54-0.0_ukb37667` == "11013" ~  "Nottingham",
+                     `54-0.0_ukb37667` == "11002" ~  "Oxford",
+                     `54-0.0_ukb37667` == "11007" ~  "Reading",
+                     `54-0.0_ukb37667` == "11014" ~  "Sheffield",
+                     `54-0.0_ukb37667` == "10003" ~  "Stockport (pilot)",
+                     `54-0.0_ukb37667` == "11006" ~  "Stoke",
+                     `54-0.0_ukb37667` == "11022" ~  "Swansea",
+                     `54-0.0_ukb37667` == "11023" ~  "Wrexham",
+                     `54-0.0_ukb37667` == "11025" ~  "Cheadle (imaging)",
+                     `54-0.0_ukb37667` == "11026" ~  "Reading (imaging)",
+                     `54-0.0_ukb37667` == "11027" ~  "Newcastle (imaging)",
+                     `54-0.0_ukb37667` == "11028" ~  "Bristol (imaging)"
+           )
+  )
+
+# Check
+df %>%
+  count(centre_initial_assessment)
+
+# First repeat assessment                    
+df <- df %>%
+  mutate(centre_first_repeat_assessment =
+           case_when(`54-1.0_ukb37667` == "11012" ~ "Barts",
+                     `54-1.0_ukb37667` == "11012" ~  "Barts",
+                     `54-1.0_ukb37667` == "11021" ~  "Birmingham",
+                     `54-1.0_ukb37667` == "11011" ~  "Bristol",
+                     `54-1.0_ukb37667` == "11008" ~  "Bury",
+                     `54-1.0_ukb37667` == "11003" ~  "Cardiff",
+                     `54-1.0_ukb37667` == "11024" ~  "Cheadle (revisit)",
+                     `54-1.0_ukb37667` == "11020" ~  "Croydon",
+                     `54-1.0_ukb37667` == "11005" ~  "Edinburgh",
+                     `54-1.0_ukb37667` == "11004" ~  "Glasgow",
+                     `54-1.0_ukb37667` == "11018" ~  "Hounslow",
+                     `54-1.0_ukb37667` == "11010" ~  "Leeds",
+                     `54-1.0_ukb37667` == "11016" ~  "Liverpool",
+                     `54-1.0_ukb37667` == "11001" ~  "Manchester",
+                     `54-1.0_ukb37667` == "11017" ~  "Middlesborough",
+                     `54-1.0_ukb37667` == "11009" ~  "Newcastle",
+                     `54-1.0_ukb37667` == "11013" ~  "Nottingham",
+                     `54-1.0_ukb37667` == "11002" ~  "Oxford",
+                     `54-1.0_ukb37667` == "11007" ~  "Reading",
+                     `54-1.0_ukb37667` == "11014" ~  "Sheffield",
+                     `54-1.0_ukb37667` == "10003" ~  "Stockport (pilot)",
+                     `54-1.0_ukb37667` == "11006" ~  "Stoke",
+                     `54-1.0_ukb37667` == "11022" ~  "Swansea",
+                     `54-1.0_ukb37667` == "11023" ~  "Wrexham",
+                     `54-1.0_ukb37667` == "11025" ~  "Cheadle (imaging)",
+                     `54-1.0_ukb37667` == "11026" ~  "Reading (imaging)",
+                     `54-1.0_ukb37667` == "11027" ~  "Newcastle (imaging)",
+                     `54-1.0_ukb37667` == "11028" ~  "Bristol (imaging)"
+           )
+  )
+             
+# Check
+df %>%
+  count(centre_first_repeat_assessment)           
+
+
+# First repeat assessment                    
+df <- df %>%
+  mutate(centre_imaging_assessment =
+           case_when(`54-2.0_ukb37667` == "11012" ~ "Barts",
+                     `54-2.0_ukb37667` == "11012" ~  "Barts",
+                     `54-2.0_ukb37667` == "11021" ~  "Birmingham",
+                     `54-2.0_ukb37667` == "11011" ~  "Bristol",
+                     `54-2.0_ukb37667` == "11008" ~  "Bury",
+                     `54-2.0_ukb37667` == "11003" ~  "Cardiff",
+                     `54-2.0_ukb37667` == "11024" ~  "Cheadle (revisit)",
+                     `54-2.0_ukb37667` == "11020" ~  "Croydon",
+                     `54-2.0_ukb37667` == "11005" ~  "Edinburgh",
+                     `54-2.0_ukb37667` == "11004" ~  "Glasgow",
+                     `54-2.0_ukb37667` == "11018" ~  "Hounslow",
+                     `54-2.0_ukb37667` == "11010" ~  "Leeds",
+                     `54-2.0_ukb37667` == "11016" ~  "Liverpool",
+                     `54-2.0_ukb37667` == "11001" ~  "Manchester",
+                     `54-2.0_ukb37667` == "11017" ~  "Middlesborough",
+                     `54-2.0_ukb37667` == "11009" ~  "Newcastle",
+                     `54-2.0_ukb37667` == "11013" ~  "Nottingham",
+                     `54-2.0_ukb37667` == "11002" ~  "Oxford",
+                     `54-2.0_ukb37667` == "11007" ~  "Reading",
+                     `54-2.0_ukb37667` == "11014" ~  "Sheffield",
+                     `54-2.0_ukb37667` == "10003" ~  "Stockport (pilot)",
+                     `54-2.0_ukb37667` == "11006" ~  "Stoke",
+                     `54-2.0_ukb37667` == "11022" ~  "Swansea",
+                     `54-2.0_ukb37667` == "11023" ~  "Wrexham",
+                     `54-2.0_ukb37667` == "11025" ~  "Cheadle (imaging)",
+                     `54-2.0_ukb37667` == "11026" ~  "Reading (imaging)",
+                     `54-2.0_ukb37667` == "11027" ~  "Newcastle (imaging)",
+                     `54-2.0_ukb37667` == "11028" ~  "Bristol (imaging)"
+           )
+  )
+             
+# Check
+df %>%
+  count(centre_imaging_assessment)       
+
+df <- df %>%
+  mutate(centre_first_repeat_imaging_assessment =
+           case_when(`54-3.0_ukb37667` == "11012" ~ "Barts",
+                     `54-3.0_ukb37667` == "11012" ~  "Barts",
+                     `54-3.0_ukb37667` == "11021" ~  "Birmingham",
+                     `54-3.0_ukb37667` == "11011" ~  "Bristol",
+                     `54-3.0_ukb37667` == "11008" ~  "Bury",
+                     `54-3.0_ukb37667` == "11003" ~  "Cardiff",
+                     `54-3.0_ukb37667` == "11024" ~  "Cheadle (revisit)",
+                     `54-3.0_ukb37667` == "11020" ~  "Croydon",
+                     `54-3.0_ukb37667` == "11005" ~  "Edinburgh",
+                     `54-3.0_ukb37667` == "11004" ~  "Glasgow",
+                     `54-3.0_ukb37667` == "11018" ~  "Hounslow",
+                     `54-3.0_ukb37667` == "11010" ~  "Leeds",
+                     `54-3.0_ukb37667` == "11016" ~  "Liverpool",
+                     `54-3.0_ukb37667` == "11001" ~  "Manchester",
+                     `54-3.0_ukb37667` == "11017" ~  "Middlesborough",
+                     `54-3.0_ukb37667` == "11009" ~  "Newcastle",
+                     `54-3.0_ukb37667` == "11013" ~  "Nottingham",
+                     `54-3.0_ukb37667` == "11002" ~  "Oxford",
+                     `54-3.0_ukb37667` == "11007" ~  "Reading",
+                     `54-3.0_ukb37667` == "11014" ~  "Sheffield",
+                     `54-3.0_ukb37667` == "10003" ~  "Stockport (pilot)",
+                     `54-3.0_ukb37667` == "11006" ~  "Stoke",
+                     `54-3.0_ukb37667` == "11022" ~  "Swansea",
+                     `54-3.0_ukb37667` == "11023" ~  "Wrexham",
+                     `54-3.0_ukb37667` == "11025" ~  "Cheadle (imaging)",
+                     `54-3.0_ukb37667` == "11026" ~  "Reading (imaging)",
+                     `54-3.0_ukb37667` == "11027" ~  "Newcastle (imaging)",
+                     `54-3.0_ukb37667` == "11028" ~  "Bristol (imaging)"
+           )
+  )
+             
+# Check
+df %>%
+  count(centre_first_repeat_imaging_assessment)       
+```
+
+```{r save centre data}
+df %>%
+  select(ID = eid,
+        centre_initial_assessment,
+        centre_first_repeat_assessment,
+        centre_imaging_assessment,
+         centre_first_repeat_imaging_assessment
+         ) %>%
+  write.table(file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED3_centre_dat_100322.txt",
+            row.names = F,
+            col.names=T,
             quote=F,
             sep=" ")
 ```

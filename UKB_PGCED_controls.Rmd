@@ -15,6 +15,31 @@ Delete everything in your global environment
 remove(list = ls())
 ```
 
+# Load packages
+```{r load packages}
+#install.packages("devtools")
+library(devtools)
+
+# Install Ken's UKB KCL package
+#devtools::install_github("kenhanscombe/ukbkings",
+#          dependencies = TRUE,
+#           force = TRUE)
+#
+library(ukbkings)
+
+#install.packages("DescTools")
+library(DescTools)
+
+#install.packages("stringi")
+#library(stringi)
+
+#install.packages("tidyverse")
+library(tidyverse)
+
+#install.packages("tidyr")
+library(tidyr)
+```
+
 # Controls
 # You need a file with required fields, one per line, no header.
 ```{r}
@@ -42,7 +67,9 @@ page(method = "print")
 
 # Add their field codes to a file, one per line, no header. You can page through the file.
 ```{r}
-strings <- c("eid") 
+strings <- c("eid",
+             "20544", # for MHQ - psychological overeating or binge eating
+             "20002") # for non-cancer illness code - anorexia/bulimia/other eating disorder
 
 f %>%
 select(field, name) %>%
@@ -66,36 +93,52 @@ system("ls -lh small_phenotype_subset.rds")
 df <- readRDS("small_phenotype_subset.rds")
 ```
 
-# Read in case data
-```{r}
-dat <- readRDS(file = paste0("XXXXX"))
+Rename columns from the default UKB field names to the descriptive names used in the field-to-name “field finder” name column.
+```{r rename columns using bio_rename}
+df <- bio_rename(df, f)
+nrow(df)
 
-only_case_dat <- dat %>% 
+colnames(df)
+```
+
+# first, read in case data
+```{r read in case data}
+case_dat <- readRDS(file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED_Freeze3_final_files/UKB_PGCED3_only_case_data_070322.rds")
+
+case_dat <- case_dat %>% 
   filter(BE_narrow == 1 |
            BE_broad == 1 |
-           AN_case == 1)
+           AN_case == 1) # 1958
 ```
 
 # Filter by ID (i.e., select controls based on not being a case)
-```{r}
+```{r filter control data by case data}
 `%!in%` = Negate(`%in%`)
 
 control_dat <- df %>%
-  filter(eid %!in% only_case_dat$eid)
+  filter(eid %!in% case_dat$eid)
 
 # Check 
-nrow(control_dat) # 500529 (502539 [total UKB] - 2010 [PGCED cases])
+control_dat %>% # 500581 (502539 [total UKB] - 1958 [PGCED cases])
+  nrow() 
 ``` 
 
-# Need to apply additional filters
-i.e., Also filter by ANY other eating disorder [include filtering by cases]
+```{r remove not needed data to save memory}
+rm(case_dat)
+gc()
+```
 
-Death by AN is included in cases (and therefore automatically not included in controls.) No other death by eating disorders are endorsed other than 'F50.8 Other eating disorders' n = 1
+# Need to apply additional filters
+i.e., Also filter by ANY other eating disorder [include filtering by cases] or binge eating
+
+
 ## Death data (need to also filter out for 'other eating disorder' death cases)
+Death by AN is included in cases (and therefore automatically not included in controls.) No other death by eating disorders are endorsed other than 'F50.8 Other eating disorders' n = 1
+
 - Death register - Health-related outcomes
 - Contributory (secondary) causes of death: ICD10
     - F50.8 Other eating disorders n = 1
-    ```{r DEATH read in data}
+```{r DEATH read in data}
 death_cause_diskframe <- bio_record(project_dir, record = "death_cause")
 
 death_cause <- death_cause_diskframe %>%
@@ -104,7 +147,8 @@ death_cause <- death_cause_diskframe %>%
            ) %>%
     collect()
 
-nrow(death_cause)
+death_cause %>%
+  nrow()
 ```
 
 ```{r death register not cases not controls}
@@ -115,36 +159,238 @@ death_data <- death_cause %>%
             ))
 
 death_data %>%
-  count(death_due_to_any_other_ED)  # 
+  count(death_due_to_any_other_ED)  # 1
 ```
   
 ```{r filter out cases}
-death_data_not_controls <- death_cause %>%
-  filter(death_due_to_any_other_ED = 1)
+death_data_not_controls <- death_data %>%
+  filter(death_due_to_any_other_ED == 1)
 
 death_data_not_controls %>%
   count(death_due_to_any_other_ED)
 
 control_dat <- control_dat %>%
   filter(eid %!in% death_data_not_controls$eid)
+
+# Check
+control_dat %>%
+  nrow() # 500580 (500581 [UKB control data] - 1 [death due to ED])
 ```
-  
-    
-## Also filter out these
-Non-cancer illness code, self-reported
+
+```{r remove not needed data to save memory}
+rm(death_data_not_controls)
+rm(death_data)
+rm(death_cause)
+gc()
+```
+
+## Non-cancer illness code, self-reported
 Medical conditions - Verbal interview - Assessment Centre
 neurology/eye/psychiatry --> psychological/psychiatric problem --> substance abuse/dependency --> anorexia/bulimia/other eating disorder (n = 410)
 https://biobank.ndph.ox.ac.uk/showcase/coding.cgi?id=6
 ```{r filter out non-cancer illness code verbal interview not cases not controls}
-f %>%
-    filter(field %in% names(df)) %>%
-    select(field, categorical_coding)
+# Initial assessment
+df <- df %>%
+  mutate(anorexia_bulimia_other_eating_disorder0_1 = 
+           case_when(
+           `20002-0.0_ukb50079` == "1470" |
+           `20002-0.1_ukb50079` == "1470" |
+           `20002-0.2_ukb50079` == "1470" |
+           `20002-0.3_ukb50079` == "1470" |
+           `20002-0.4_ukb50079` == "1470" |
+           `20002-0.5_ukb50079` == "1470" |
+           `20002-0.6_ukb50079` == "1470" |
+           `20002-0.7_ukb50079` == "1470" |
+           `20002-0.8_ukb50079` == "1470" |
+           `20002-0.9_ukb50079` == "1470" |
+           `20002-0.10_ukb50079`  == "1470" |
+           `20002-0.11_ukb50079`  == "1470" |
+           `20002-0.12_ukb50079`  == "1470" |
+           `20002-0.13_ukb50079`  == "1470" |
+           `20002-0.14_ukb50079`  == "1470" |
+           `20002-0.15_ukb50079`  == "1470" |
+           `20002-0.16_ukb50079`  == "1470" |
+           `20002-0.17_ukb50079`  == "1470" |
+           `20002-0.18_ukb50079`  == "1470" |
+           `20002-0.19_ukb50079`  == "1470" |
+           `20002-0.20_ukb50079`  == "1470" |
+           `20002-0.21_ukb50079`  == "1470" |
+           `20002-0.22_ukb50079`  == "1470" |
+           `20002-0.22_ukb50079`  == "1470" |
+           `20002-0.22_ukb50079`  == "1470" |
+           `20002-0.23_ukb50079`  == "1470" |
+           `20002-0.24_ukb50079`  == "1470" |
+           `20002-0.25_ukb50079`  == "1470" |
+           `20002-0.26_ukb50079`  == "1470" |
+           `20002-0.27_ukb50079`  == "1470" |
+           `20002-0.28_ukb50079`  == "1470" |
+           `20002-0.29_ukb50079`  == "1470" |
+           `20002-0.30_ukb50079`  == "1470" |
+           `20002-0.31_ukb50079`  == "1470" |
+           `20002-0.32_ukb50079` == "1470" |
+           `20002-0.33_ukb50079` == "1470" |
+           `20002-1.0_ukb50079` == "1470" |
+           `20002-1.1_ukb50079` == "1470" |
+           `20002-1.2_ukb50079` == "1470" |
+           `20002-1.3_ukb50079` == "1470" |
+           `20002-1.4_ukb50079` == "1470" |
+           `20002-1.5_ukb50079` == "1470" |
+           `20002-1.6_ukb50079` == "1470" |
+           `20002-1.7_ukb50079` == "1470" |
+           `20002-1.8_ukb50079` == "1470" |
+           `20002-1.9_ukb50079` == "1470" |
+           `20002-1.10_ukb50079`  == "1470" |
+           `20002-1.11_ukb50079`  == "1470" |
+           `20002-1.12_ukb50079`  == "1470" |
+           `20002-1.13_ukb50079`  == "1470" |
+           `20002-1.14_ukb50079`  == "1470" |
+           `20002-1.15_ukb50079`  == "1470" |
+           `20002-1.16_ukb50079`  == "1470" |
+           `20002-1.17_ukb50079`  == "1470" |
+           `20002-1.18_ukb50079`  == "1470" |
+           `20002-1.19_ukb50079`  == "1470" |
+           `20002-1.20_ukb50079`  == "1470" |
+           `20002-1.21_ukb50079`  == "1470" |
+           `20002-1.22_ukb50079`  == "1470" |
+           `20002-1.22_ukb50079`  == "1470" |
+           `20002-1.22_ukb50079`  == "1470" |
+           `20002-1.23_ukb50079`  == "1470" |
+           `20002-1.24_ukb50079`  == "1470" |
+           `20002-1.25_ukb50079`  == "1470" |
+           `20002-1.26_ukb50079`  == "1470" |
+           `20002-1.27_ukb50079`  == "1470" |
+           `20002-1.28_ukb50079`  == "1470" |
+           `20002-1.29_ukb50079`  == "1470" |
+           `20002-1.30_ukb50079`  == "1470" |
+           `20002-1.31_ukb50079`  == "1470" |
+           `20002-1.32_ukb50079` == "1470" |
+           `20002-1.33_ukb50079` == "1470" ~ 1))
+          
+df %>%
+  count(anorexia_bulimia_other_eating_disorder0_1) # 379
+            
+# Second assessment              
+df <- df %>%
+  mutate(anorexia_bulimia_other_eating_disorder2= 
+           case_when(             
+           `20002-2.0_ukb50079` == "1470" |
+           `20002-2.1_ukb50079` == "1470" |
+           `20002-2.2_ukb50079` == "1470" |
+           `20002-2.3_ukb50079` == "1470" |
+           `20002-2.4_ukb50079` == "1470" |
+           `20002-2.5_ukb50079` == "1470" |
+           `20002-2.6_ukb50079` == "1470" |
+           `20002-2.7_ukb50079` == "1470" |
+           `20002-2.8_ukb50079` == "1470" |
+           `20002-2.9_ukb50079` == "1470" |
+           `20002-2.10_ukb50079`  == "1470" |
+           `20002-2.11_ukb50079`  == "1470" |
+           `20002-2.12_ukb50079`  == "1470" |
+           `20002-2.13_ukb50079`  == "1470" |
+           `20002-2.14_ukb50079`  == "1470" |
+           `20002-2.15_ukb50079`  == "1470" |
+           `20002-2.16_ukb50079`  == "1470" |
+           `20002-2.17_ukb50079`  == "1470" |
+           `20002-2.18_ukb50079`  == "1470" |
+           `20002-2.19_ukb50079`  == "1470" |
+           `20002-2.20_ukb50079`  == "1470" |
+           `20002-2.21_ukb50079`  == "1470" |
+           `20002-2.22_ukb50079`  == "1470" |
+           `20002-2.22_ukb50079`  == "1470" |
+           `20002-2.22_ukb50079`  == "1470" |
+           `20002-2.23_ukb50079`  == "1470" |
+           `20002-2.24_ukb50079`  == "1470" |
+           `20002-2.25_ukb50079`  == "1470" |
+           `20002-2.26_ukb50079`  == "1470" |
+           `20002-2.27_ukb50079`  == "1470" |
+           `20002-2.28_ukb50079`  == "1470" |
+           `20002-2.29_ukb50079`  == "1470" |
+           `20002-2.30_ukb50079`  == "1470" |
+           `20002-2.31_ukb50079`  == "1470" |
+           `20002-2.32_ukb50079` == "1470" |
+           `20002-2.33_ukb50079` == "1470" ~ 1))
+          
+ df %>%
+  count(anorexia_bulimia_other_eating_disorder2) # 20
+               
+ # Third assessment     
+ df <- df %>%
+  mutate(anorexia_bulimia_other_eating_disorder3= 
+           case_when(             
+            `20002-3.0_ukb50079` == "1470" |
+           `20002-3.1_ukb50079` == "1470" |
+           `20002-3.2_ukb50079` == "1470" |
+           `20002-3.3_ukb50079` == "1470" |
+           `20002-3.4_ukb50079` == "1470" |
+           `20002-3.5_ukb50079` == "1470" |
+           `20002-3.6_ukb50079` == "1470" |
+           `20002-3.7_ukb50079` == "1470" |
+           `20002-3.8_ukb50079` == "1470" |
+           `20002-3.9_ukb50079` == "1470" |
+           `20002-3.10_ukb50079`  == "1470" |
+           `20002-3.11_ukb50079`  == "1470" |
+           `20002-3.12_ukb50079`  == "1470" |
+           `20002-3.13_ukb50079`  == "1470" |
+           `20002-3.14_ukb50079`  == "1470" |
+           `20002-3.15_ukb50079`  == "1470" |
+           `20002-3.16_ukb50079`  == "1470" |
+           `20002-3.17_ukb50079`  == "1470" |
+           `20002-3.18_ukb50079`  == "1470" |
+           `20002-3.19_ukb50079`  == "1470" |
+           `20002-3.20_ukb50079`  == "1470" |
+           `20002-3.21_ukb50079`  == "1470" |
+           `20002-3.22_ukb50079`  == "1470" |
+           `20002-3.22_ukb50079`  == "1470" |
+           `20002-3.22_ukb50079`  == "1470" |
+           `20002-3.23_ukb50079`  == "1470" |
+           `20002-3.24_ukb50079`  == "1470" |
+           `20002-3.25_ukb50079`  == "1470" |
+           `20002-3.26_ukb50079`  == "1470" |
+           `20002-3.27_ukb50079`  == "1470" |
+           `20002-3.28_ukb50079`  == "1470" |
+           `20002-3.29_ukb50079`  == "1470" |
+           `20002-3.30_ukb50079`  == "1470" |
+           `20002-3.31_ukb50079`  == "1470" |
+           `20002-3.32_ukb50079` == "1470" |
+           `20002-3.33_ukb50079` == "1470" ~ 1))
+   
+df %>%
+  count(anorexia_bulimia_other_eating_disorder3) # 5
+         
+# Overall
+df <- df %>%
+  mutate(anorexia_bulimia_other_eating_disorder= 
+           case_when(  
+             anorexia_bulimia_other_eating_disorder0_1 == 1 | 
+              anorexia_bulimia_other_eating_disorder2 ==  1 |
+             anorexia_bulimia_other_eating_disorder3 == 1 ~ 1))  
+ 
+    
+df %>%
+  count(anorexia_bulimia_other_eating_disorder) # 397
+```
 
-cx <- bio_code(project_dir)
-head(cx)
+```{r filter out cases}
+noncancer_illness_not_controls <- df %>%
+  filter(anorexia_bulimia_other_eating_disorder == 1)
 
-cx %>%
-    filter(Coding == 1470)
+noncancer_illness_not_controls %>%
+  count(anorexia_bulimia_other_eating_disorder)
+
+
+unique(length(noncancer_illness_not_controls$eid))
+
+control_dat <- control_dat %>%
+  filter(eid %!in% noncancer_illness_not_controls$eid)
+
+# Check
+control_dat %>%
+  nrow() # 500406 (500580 [UKB control data] - 174 [noncancer illness code of 'anorexia/bulimia/other eating disorder' that had not already been excluded])
+```
+
+```{r remove not needed data to save memory}
+rm(noncancer_illness_not_controls)
+gc()
 ```
 
 ## MHQ data
@@ -174,22 +420,28 @@ df <- df %>%
 
 
 df %>%
-  count(psych_overeating_or_BE_MHQ) #707
+  count(psych_overeating_or_BE_MHQ) # 707
 ```
 
 Filter out cases 
 ```{r MHQ filter out cases}
-MHQ_dat_not_controls <- MHQ_dat %>%
+MHQ_dat_not_controls <- df %>%
   filter(psych_overeating_or_BE_MHQ == 1)
-
 
 control_dat <- control_dat %>%
   filter(eid %!in% MHQ_dat_not_controls$eid)
+
+# Check
+control_dat %>%
+  nrow() # 499822 (500406 [UKB control data] - 584 [MHQ code of 'psychological overeating/binge eating' that had not already been excluded])
+```
+
+```{r remove not needed data to save memory}
+rm(MHQ_dat_not_controls)
+gc()
 ```
 
 ## HES data
-include:
-?
 ```{r HES read in diagnosis data}
 hesin_diag_diskframe <- bio_record(project_dir, record = "hesin_diag")
 
@@ -229,6 +481,26 @@ hesin_diag %>%
   count(ICD10_eating_disorder_unspecified) 
 ```
 
+Filter out cases 
+```{r HES filter out cases}
+HES_dat_not_controls <- hesin_diag %>%
+  filter(ICD10_other_EDs == 1 |
+         ICD10_eating_disorder_unspecified == 1 )
+
+control_dat <- control_dat %>%
+  filter(eid %!in% HES_dat_not_controls$eid)
+
+# Check
+control_dat %>%
+  nrow() # 499777  (499822 [UKB control data] - 45 [HES code of an eating disorder that had not already been excluded])
+```
+
+```{r remove not needed data to save memory}
+rm(HES_dat_not_controls)
+rm(hesin_diag)
+gc()
+```
+
 ## GP data
 Controls: Any individual who does not have a history of binge eating (narrow or broad definition) AND does not have a history of any eating disorder.
 
@@ -257,7 +529,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_appetite_loss_anorexia_anorexia_symptom_loss_of_appetite)  # 
+  count(read2_appetite_loss_anorexia_anorexia_symptom_loss_of_appetite)  # 203
 
 
 # 8HTN. = Referral to eating disorders clinic
@@ -268,7 +540,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_referral_to_ED_clinic) 
+  count(read2_referral_to_ED_clinic) # 12
 
 # 9Nk9. = Seen in eating disorder clinic
 gp_clinical <- gp_clinical %>%
@@ -278,7 +550,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_seen_in_ED_clinic) 
+  count(read2_seen_in_ED_clinic) # 4
 
 # E275. = Other and unspecified non-organic eating disorders
 gp_clinical <- gp_clinical %>%
@@ -288,7 +560,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_other_unspec_nonorganic_EDs) 
+  count(read2_other_unspec_nonorganic_EDs) # 12
 
 # E2750 = Unspecified non-organic eating disorder
 gp_clinical <- gp_clinical %>%
@@ -298,7 +570,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_unspec_nonorganic_EDs) 
+  count(read2_unspec_nonorganic_EDs) # 3
 
 # E2752 = Pica
 gp_clinical <- gp_clinical %>%
@@ -308,7 +580,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_pica) 
+  count(read2_pica) # 2
 
 # E275y = Other specified non-organic eating disorder
 gp_clinical <- gp_clinical %>%
@@ -318,7 +590,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_other_unspec_nonorganic_EDs_2) 
+  count(read2_other_unspec_nonorganic_EDs_2) # 0
 
 
 # E275z = Non-organic eating disorder NOS
@@ -329,7 +601,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_nonorganic_EDs_NOS) 
+  count(read2_nonorganic_EDs_NOS) # 2
 
 
 # Eu50. = [X]Eating disorders
@@ -340,7 +612,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_XEating_disorders) 
+  count(read2_XEating_disorders) # 64
 
 
 # Eu501 = [X]Atypical anorexia nervosa
@@ -351,7 +623,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_Xatypical_anorexia_nervosa) 
+  count(read2_Xatypical_anorexia_nervosa) # 2
 
 
 # Eu50y = [X]Other eating disorders; [X]Pica in adults; [X]Psychogenic loss of appetite
@@ -362,7 +634,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_XOther_eating_disorders_pica_psychogenic_loss_appetite) 
+  count(read2_XOther_eating_disorders_pica_psychogenic_loss_appetite) # 1
 
 # Eu50z = [X]Eating disorder, unspecified
 gp_clinical <- gp_clinical %>%
@@ -372,7 +644,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_XEating_disorder_unspec) 
+  count(read2_XEating_disorder_unspec) # 4
 
 
 # Fy05. = Nocturnal sleep-related eating disorder
@@ -383,7 +655,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_nocturnal_sleeprelated_eating_disorder) 
+  count(read2_nocturnal_sleeprelated_eating_disorder) # 0
 
 
 # R030. = [D]Anorexia (even if excl criteria not met)
@@ -394,7 +666,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_DAnorexia) 
+  count(read2_DAnorexia) # 54
 
 
 # R030z = [D]Anorexia NOS (even if excl criteria not met)
@@ -405,12 +677,11 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_DAnorexia_NOS) 
+  count(read2_DAnorexia_NOS) # 0
 ```
 
 ### GP read 3 code: ‘History of any eating disorder’
 ```{r GP read code 3 history of any eating disorder}
-
 # 1612. = Appetite loss: [anorexia] or [anorexia symptom]; Anorexia symptom; Appetite loss - anorexia; Loss of appetite; Loss of appetite - symptom
 gp_clinical <- gp_clinical %>%
   mutate(read3_appetite_loss_anorexia =
@@ -635,7 +906,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read3_other_unspec_nonorganic_eating_disorder)
+  count(read3_other_unspec_nonorganic_eating_disorder) # 1
 
 
 # E275z = Non-organic eating disorder NOS
@@ -657,7 +928,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read3_XEating_disorder_pica_psychogenic_loss_appetite)
+  count(read3_XEating_disorder_pica_psychogenic_loss_appetite) # 0
 
 # .R340 = [D]Excessive eating; [D]Bulimia NOS
 gp_clinical <- gp_clinical %>%
@@ -667,7 +938,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read3_DExcessive_eating_bulimia_NOS)
+  count(read3_DExcessive_eating_bulimia_NOS) # 0
 ```
 
 ### GP read 2 code: Binge eating
@@ -680,7 +951,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read2_emotional_eating)
+  count(read2_emotional_eating) # 1
 ```
 
 ### GP read code 3 binge eating
@@ -693,7 +964,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read3_binge_eating_bingeing_bouts_overeating_binges)
+  count(read3_binge_eating_bingeing_bouts_overeating_binges) # 33
 
 # .1FF. = Binge eating; Bingeing; Bouts of overeating; Episodes of overeating’ Binges
 gp_clinical <- gp_clinical %>%
@@ -703,7 +974,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read3_binge_eating_bingeing_bouts_overeating_binges_2)
+  count(read3_binge_eating_bingeing_bouts_overeating_binges_2) # 0
 
 # 1FF.. = Binge eating; Bingeing; Bouts of overeating; Episodes of overeating’ Binges
 gp_clinical <- gp_clinical %>%
@@ -713,7 +984,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read3_binge_eating_bingeing_bouts_overeating_binges_3)
+  count(read3_binge_eating_bingeing_bouts_overeating_binges_3) # 0
 
 # Xab0U = Emotional eating
 gp_clinical <- gp_clinical %>%
@@ -723,7 +994,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read3_emotional_eating)
+  count(read3_emotional_eating) # 0
 
 # 1FN.. = Emotional eating
 gp_clinical <- gp_clinical %>%
@@ -733,7 +1004,7 @@ gp_clinical <- gp_clinical %>%
   )
 
 gp_clinical %>%
-  count(read3_emotional_eating_2)
+  count(read3_emotional_eating_2) # 0
 ```
 
 ### Filter out cases
@@ -793,16 +1064,18 @@ gp_not_controls <- gp_clinical %>%
       read3_emotional_eating == 1 |
       read3_emotional_eating_2 == 1 
     ) 
+
+
+control_dat <- control_dat %>%
+  filter(eid %!in% gp_not_controls$eid) 
+
+control_dat %>%
+  nrow() # 499308 (499777 - 469 [participants with a GP code of an eating disorder or binge who have not already been excluded])
 ```
 
-```{r filter out GP not controls}
-dat <- dat %>%
-  filter(eid %!in% gp_not_controls$eid)
-```
-
-
-```{r}
-saveRDS(object = control_dat, file = paste0("/scratch/groups/ukbiobank/usr/helena_d/final/UKB_PGCED3_control_data.rds"))
+# Save
+```{r save control data}
+saveRDS(object = control_dat, file = paste0("/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED_Freeze3_final_files/UKB_PGCED3_control_data_100322.rds"))
 ```
 
 

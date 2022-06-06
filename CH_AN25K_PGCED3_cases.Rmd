@@ -5,11 +5,6 @@ date: "02/06/2021"
 output: html_document
 ---
 
-# Set up
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 # Set up workspace
 ```{r Setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
@@ -49,9 +44,45 @@ Read in data
 ```{r Read in data}
 dat_raw <- read_csv("../data_raw/charlottes_helix/CH_+_AN25K_data_merge_04.06.csv")
 
+barcodes <- read_csv("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_raw/charlottes_helix/barcodes.csv")
+
+barcodes <- barcodes %>%
+  select(ID = participant_id,
+         visit_barcode_x,
+     visit_barcode_2_x,
+     visit_barcode_3_x,
+     visit_barcode.1_x,
+     visit_barcode_2.1_x,
+     visit_barcode_3.1_x,
+     visit_barcode_4_x,
+     visit_barcode_5_x,
+     visit_barcode_6_x,
+     visit_barcode_7_x,
+     visit_barcode_8_x,
+     visit_barcode_9_x,
+     visit_barcode_10_x,
+     visit_barcode_11_x)
+
+
 # Check
 dat_raw %>%
   colnames()
+
+dat_raw %>%
+  nrow()
+```
+
+Check visit notes and barcode
+```{r check visit notes and barcodes}
+dat_raw %>%
+  select(contains("visit_barcode")) %>%
+  colnames()
+
+dat_raw %>%
+  select(contains("visit_notes")) 
+
+dat_raw %>%
+  select(contains("reg")) 
 ```
 
 ```{r Select columns}
@@ -60,13 +91,39 @@ dat <- dat_raw %>%
     "ID" = "participant_id",
     "gender" = "gender_x",
     "Study_x",
-    "visit_barcode_x",
+    
+    # Visit barcodes
+    #"visit_barcode_x",
+    #"visit_barcode_2_x",
+    #"visit_barcode_3_x",
+    #"visit_barcode.1_x",
+    #"visit_barcode_2.1_x",
+    #"visit_barcode_3.1_x",
+    #"visit_barcode_4_x",
+    #"visit_barcode_5_x",
+    #"visit_barcode_6_x",
+    #"visit_barcode_7_x",
+    #"visit_barcode_8_x",
+    #"visit_barcode_9_x",
+    #"visit_barcode_10_x",
+    #"visit_barcode_11_x",
+
+    # Visit notes
     "visit_notes_x",
-    "visit_barcode_2_x",
     "visit_notes_2_x",
-    "visit_barcode_3_x",
     "visit_notes_3_x",
-    "registration_notes_x",
+    "visit_notes.1_x",
+    "visit_notes_2.1_x",
+    "visit_notes_3.1_x",
+    "visit_notes_4_x",
+    "visit_notes_5_x",
+    "visit_notes_6_x",
+    "visit_notes_7_x",
+    "visit_notes_8_x",
+    "visit_notes_9_x",
+    "visit_notes_10_x",
+    "visit_notes_11_x",
+     "registration_notes_x",
     "No Known Diagnosis_x",
     "Anorexia Nervosa_x",
     "Bulimia Nervosa_x",
@@ -158,6 +215,16 @@ dat %>%
 dat %>%
   colnames()
 ```
+# Merge dat with barcode data
+```{r merge data with barcode data}
+dat <- dplyr::full_join(dat,
+                        barcodes,
+                        by ="ID")
+
+dat %>%
+  freq(visit_barcode_x)
+```
+
 
 # Identify people with all missing data 
 Need to know which people are missing for all relevant data, i.e., data that would otherwise categorise them as case or control
@@ -168,6 +235,19 @@ missing_dat <- dat %>%
     is.na(visit_notes_x) &       
     is.na(visit_notes_2_x) &               
     is.na(visit_notes_3_x) &
+   
+    is.na(visit_notes.1_x) &
+    is.na(visit_notes_2.1_x) &
+    is.na(visit_notes_3.1_x) &
+    is.na(visit_notes_4_x) &
+    is.na(visit_notes_5_x) &
+    is.na(visit_notes_6_x) &
+    is.na(visit_notes_7_x) &
+    is.na(visit_notes_8_x) &
+    is.na(visit_notes_9_x) &
+    is.na(visit_notes_10_x) &
+    is.na(visit_notes_11_x) &
+      
     (`No Known Diagnosis_x` == 0 |
       is.na(`No Known Diagnosis_x`)) &
     (`No Known Diagnosis_y` == 0 |
@@ -427,6 +507,25 @@ dat %>%
 ```
 2 people with clinically-confirmed diagnosis of BN.
 
+Visit notes
+NB: visit_notes_x, visit_notes_2_x, visit_notes_3_x are the same as visit_notes.1_x, visit_notes_2.1_x, and visit_notes_3.1_x
+All empty: visit_notes_5_x, visit_notes_6_x,visit_notes_7_x,  visit_notes_8_x, visit_notes_9_x, visit_notes_10_x, visit_notes_11_x
+```{r visit notes narrow BE}
+dat %>%
+  freq(visit_notes_x)
+# Case: Binge eating disorder; Case: Bulimia Nervosa; CAse: Bulimia Nervosa; Case: previously anorexia nervosa/ Bulimia; DX: Bulimia Nervosa (these all count as BE_broad not BE_narrow)
+
+dat %>%
+  freq(visit_notes_2_x)
+# Case: Bulimia Nervosa; Case: Bulimia Nervosa, Coeliac, BPD, Anaemia;  (these all count as BE_broad not BE_narrow)
+
+dat %>%
+  freq(visit_notes_3_x) # None relevant
+
+dat %>%
+  freq(visit_notes_4_x) # None relevant
+```
+
 Narrowly defined binge eating
 ```{r PGC narrowly defined binge eating}
 dat <- dat %>%
@@ -493,7 +592,7 @@ dat %>%
 12 people have self-reported diagnosis of BN.
 
 
-# “reg info” 
+“reg info” 
 = diagnosis or extra info from sign up. If it mentions the word 'diagnosis' or 'dx', then I will include as BE_broad
 
 I will count the following as a diagnosis:    Previous Anorexia and Bulemia, Diagnosis: Bulimia Nervosa, Diagnosis: Bulimia Nervosa  Anorexia (Recovered), Dignosis: Anorexia Nervosa and Bulemia Nervosa 3 years ago, Dx: Anorexia, Bulimia, BPD, Depression, Anxiety, Alcohol misuse; Dx: Binge eating disorder, Dx: Binge Eating Disorder, Dx: Bulimia Nervosa, Dx: F50.2 Bulimia Nervosa. Self reported Diagnosis  Bulimia, Hospitalised for anorexia, ( co-mobid) depression, recently diagnosed with ASD
@@ -522,6 +621,57 @@ dat %>%
 ```
 21 people have a diagnosis of bulimia or binge-eating disorder recorded in the reg notes.
 
+Visit notes
+NB: visit_notes_x, visit_notes_2_x, visit_notes_3_x are the same as visit_notes.1_x, visit_notes_2.1_x, and visit_notes_3.1_x
+All empty: visit_notes_5_x, visit_notes_6_x,visit_notes_7_x,  visit_notes_8_x, visit_notes_9_x, visit_notes_10_x, visit_notes_11_x
+```{r visit notes broad BE}
+dat %>%
+  freq(visit_notes_x)
+# Case: Binge eating disorder; Case: Bulimia Nervosa; CAse: Bulimia Nervosa; Case: previously anorexia nervosa/ Bulimia; DX: Bulimia Nervosa 
+
+dat %>%
+  freq(visit_notes_2_x)
+# Case: Bulimia Nervosa; Case: Bulimia Nervosa, Coeliac, BPD, Anaemia 
+
+dat %>%
+  freq(visit_notes_3_x) # None relevant
+
+dat %>%
+  freq(visit_notes_4_x) # None relevant
+
+dat <- dat %>%
+  mutate(visit_notes_BE_broad_1 =
+           case_when(
+             visit_notes_x == "Case: Binge eating disorder" |
+               visit_notes_x == "Case: Bulimia Nervosa" |
+               visit_notes_x == "CAse: Bulimia Nervosa" |
+               visit_notes_x == "Case: previously anorexia nervosa/ Bulimia" |
+               visit_notes_x == "DX: Bulimia Nervosa"~ 1
+           ))
+
+# Visit notes 2
+dat <- dat %>%
+  mutate(visit_notes_BE_broad_2 =
+           case_when(
+             visit_notes_2_x == "Case: Bulimia Nervosa" |
+               visit_notes_2_x == "Case: Bulimia Nervosa, Coeliac, BPD, Anaemia" ~ 1
+           ))
+
+# create single variable for visit notes
+dat <- dat %>%
+  mutate(visit_notes_BE_broad_final =
+           case_when(
+             visit_notes_BE_broad_1 == 1 |
+             visit_notes_BE_broad_2 == 1  ~ 1
+             
+           ))
+
+# Check
+dat %>%
+  freq(visit_notes_BE_broad_final)
+```
+15 people are identified BE_broad via visit notes.
+
 
 Broadly defined binge eating
 ```{r PGC broadly defined binge eating}
@@ -530,7 +680,8 @@ dat <- dat %>%
            case_when(BE_narrow == 1 |
                        reg_info_BN_broad == 1 | # Bulimia or BED mentioned with word diagnosis in reg notes  
                        # text_box_self_reported_BN == 1 | # Not necessarily a diagnosis so cannot include
-                       diagnosis_BN == 1 | # Prim or secondary diagnosis of BN or BED 
+                       diagnosis_BN == 1 | # Prim or secondary diagnosis of BN or BED
+                       visit_notes_BE_broad_final == 1 |
                        binge_eating_loss_control == 1 ~ 1 # Binge eating with loss of control
                      )
   )
@@ -539,7 +690,7 @@ dat <- dat %>%
 dat %>%
   freq(BE_broad)
 ```  
-380 people are BE broad.
+385 people are BE broad.
 
 
 
@@ -547,6 +698,7 @@ dat %>%
 ## 1. Visit notes
 Identifying AN cases via visit notes
 NB: Gerome has said that any mention of anorexia counts as a case. (This does not apply to the binge-type EDs.)
+visit_notes_4_x does not contain any relevant information.
 ```{r visit notes AN}
 # Visit notes 1
 dat <- dat %>%
@@ -554,13 +706,14 @@ dat <- dat %>%
            case_when(
              visit_notes_x == "AN" |
                visit_notes_x == "Case: Anorexia" |
-               visit_notes_x == "Case: Anorexia and Body Dysmorphia" |
+               visit_notes_x == "Case: Anorexia (Recovered)" |
                visit_notes_x == "Case: Anorexia and Body Dysmorphia" |
                visit_notes_x == "Case: Anorexia as a child, Bulemia and Depression Currently" |
                visit_notes_x == "Case: Anorexia Nervosa" |
                visit_notes_x == "Case: Chronic anorexia Nervosa" |
                visit_notes_x == "Case: History of Anorexia Nervosa" |
                visit_notes_x == "Case: previously anorexia nervosa/ Bulimia" | 
+               visit_notes_x == "Gave blood prior to AN Dx" |
                visit_notes_x == "Recovered AN" ~ 1
            ))
 
@@ -580,8 +733,8 @@ dat <- dat %>%
 dat <- dat %>%
   mutate(visit_notes_AN_3 =
            case_when(
-             visit_notes_2_x == "AN" |
-               visit_notes_2_x == "AN  Samples taken using Oxytocin study consent form  as participant has been BioResourced previously"  ~ 1
+             visit_notes_3_x == "AN" |
+               visit_notes_3_x == "AN  Samples taken using Oxytocin study consent form  as participant has been BioResourced previously"  ~ 1
            ))
 
 # create single variable for visit notes
@@ -598,7 +751,7 @@ dat <- dat %>%
 dat %>%
   freq(visit_notes_AN_final)
 ```
-41 people meet AN criteria in the visit notes.
+55 people meet AN criteria in the visit notes.
 
 ## 2. Algorithm-derived
 
@@ -1039,9 +1192,9 @@ dat %>%
 3 people meet ANR criteria in reg notes.
 
 ## 6. Recruitment into 100,000 Genomes Project 
-These people were recruited based on having severe and enduring AN with a BMI of below 16. We can assume that they have a diagnosis of AN.
+'BED' These people were recruited based on having severe and enduring AN with a BMI of below 16. We can assume that they have a diagnosis of AN.
 ```{r 100,000 genome project}
- dat <- dat %>%
+dat <- dat %>%
   mutate(AN_100K =
            case_when(  visit_barcode_x == "BED00567" |
                        visit_barcode_x == "BED01089" |
@@ -1189,8 +1342,9 @@ These people were recruited based on having severe and enduring AN with a BMI of
                        visit_barcode_3_x == "BED01017" |
                        visit_barcode_3_x == "BED00988" |
                        visit_barcode_3_x == "BED00990 / CYT10039" ~ 1
-                       )
-         )
+                       
+                       # Already identified all people (n=53) so do not need to also add all the other barcodes
+           ))
 
 dat %>%
   freq(AN_100K)
@@ -1203,11 +1357,28 @@ dat %>%
 dat <- dat %>%
   mutate(BOA_AN =
            case_when(
-             str_detect(visit_barcode_3_x, "BOA") ~ 1, 
-             str_detect(visit_barcode_2_x, "BOA") ~ 1,
-             str_detect(visit_barcode_x, "BOA") ~ 1
+             str_detect(visit_barcode_3_x, "BOA") |
+             str_detect(visit_barcode_2_x, "BOA") |
+             str_detect(visit_barcode_x, "BOA") |
+               
+             str_detect(visit_barcode.1_x, "BOA") |
+             str_detect(visit_barcode_2.1_x, "BOA") |
+             str_detect(visit_barcode_3.1_x, "BOA") |
+               
+             str_detect(visit_barcode_4_x, "BOA") |
+             str_detect(visit_barcode_5_x, "BOA") |
+             str_detect(visit_barcode_6_x, "BOA") |
+               
+             str_detect(visit_barcode_7_x, "BOA") |
+             str_detect(visit_barcode_8_x, "BOA") |
+             str_detect(visit_barcode_9_x, "BOA") |
+               
+             str_detect(visit_barcode_10_x, "BOA") |
+             str_detect(visit_barcode_11_x, "BOA") |
+             str_detect(visit_barcode_9_x, "BOA") ~ 1
              )
   )
+
 
 # Check
 dat %>%
@@ -1461,7 +1632,22 @@ Select variables to save
 ```{r Select variables to save}
 dat.final <- dat %>%
   select(ID,
-         BMI_time_of_assessment = BMI_time_of_assessment_final,
+         # visit barcodes
+     visit_barcode_x,
+     visit_barcode_2_x,
+     visit_barcode_3_x,
+     visit_barcode.1_x,
+     visit_barcode_2.1_x,
+     visit_barcode_3.1_x,
+     visit_barcode_4_x,
+     visit_barcode_5_x,
+     visit_barcode_6_x,
+     visit_barcode_7_x,
+     visit_barcode_8_x,
+     visit_barcode_9_x,
+     visit_barcode_10_x,
+     visit_barcode_11_x,
+        BMI_time_of_assessment = BMI_time_of_assessment_final,
          BMI_max_lifetime = max_lifetime_BMI,
          BMI_min_ED_related = AN_BMI,
          gender,
@@ -1498,6 +1684,9 @@ duplicates.ids <- duplicates %>%
 # Check that duplicate IDs have same info on final variables
 dat.final %>%
   select(ID,
+        visit_barcode_x,
+        visit_barcode_2_x,
+        visit_barcode_3_x,
          AN,
          ANR,
          ANBP,
@@ -1597,7 +1786,7 @@ dat.final.no.dup %>%
 # Bind with control data from NBR
 ```{r bind with NBR controls}
 # Read in control data
-CH_controls <- readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/Charlottes_Helix_controls_090322.rds") 
+CH_controls <- readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/Charlottes_Helix_controls_280322.rds") 
 
 # Convert IDs to character to enable bind
 dat.final.no.dup$ID <- as.character(dat.final.no.dup$ID)
@@ -1608,9 +1797,13 @@ dat_final <- dat.final.no.dup %>%
 
 dat_final %>%
   colnames()
+
+dat_final %>% # Check = 1700
+  freq(control_final)
 ```
 
 # Save case and control data
 ```{r Save dataset}
 saveRDS(object = dat_final, file = paste0("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/data_CharlottesHelix_cleaned_case_control", date, ".rds"))
 ```
+

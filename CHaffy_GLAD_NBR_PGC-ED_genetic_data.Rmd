@@ -1,0 +1,1101 @@
+---
+title: "CHaffy_GLAD_NBR_PGC-ED"
+author: "BRC Team"
+date: "28/01/2022"
+output: rmdformats::material
+link-citations: yes
+description: "CHaffy_GLAD_NBR_PGC-ED."
+---
+
+# Introduction
+Lee is working on: (CH_GSA + NBR controls [1700])
+/mnt/lustre/groups/gwased/data_raw/CH_NBRctrl_ED/genotyped
+
+I am working on (with this script):
+/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped
+
+Throughout, I should keep a record of the number of individuals and the number of variants. "wc -l [file name]" counts the rows (.fam = n of individuals; .bim = number of variants)
+
+To load modules:
+"module avail"
+"module add [copy and paste name, e.g. apps/plink/1.9.0b6.10]"
+
+To look at files: 
+"less -S [file name]"
+"cat [file name]" 
+
+To look at specific specific variant position in all bim files or in specific file:
+"grep 18703052 *.bim"
+"grep 18703052 [file name]"
+
+23 = X chromosome
+24 = Y chromsome
+25 = XY chromosome
+26 = Mitochondria
+
+"--allow-extra-chr" Additional chromosomes
+
+## Info: Genotyping data
+1. CHAffy_EUR
+(670488 variants and 338 people pass filters and QC)
+
+2. NBRv1_GLADv2_EUR
+(524756 variants and 27997 people pass filters and QC)
+
+## Info: Imputed data
+/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed
+
+## Info: Phenotype data 
+Need to restructure for Plink, i.e., case = 2 and control = 1. Lee has done this: changed 1 or NA to 2s and 0s to 1s (ready for Plink). NB: Doesn't matter in which phenotype they are a case, only if they are or not (for now). So if you are a 1 ANYWHERE then you would be counted as a case overall.
+
+### Charlotte's Helix
+/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/CHAffy_PGCED3_pheno_formatted_280322.txt
+/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/CHAffy_plink_update_case_control_28032022.txt (Cases: 202 individuals)
+
+### GLAD + NBR
+/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/GLAD_NBR_PGCED3_pheno_formatted_280322.txt
+/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/GLAD_NBR_plink_update_case_control.txt (Cases: 13100 individuals, Controls: 4969 individuals)
+
+NB: For inclusion or exclusion sample file (--keep or --remove): no header, space/tab separated;each line starts with FID and IID
+Phenotype and covariates file: header, space/tab separated; each line starts with FID and IID
+
+## 1. Extract case and controls only 
+### Charlotte's Helix Genotyping data [no controls in CH]
+First, you want to extract all cases / controls from the whole dataset. You don't want to keep participants who are neither case nor control.
+```{bash, eval = FALSE}
+# Create a file of only FID and IID of cases or controls
+awk '{print $1,$2}' CHAffy_plink_update_case_control_28032022.txt > CHAffy_to_keep.txt # 202 to keep
+
+# Use this file to extract only cases or controls from genotype data and create new file
+plink -bfile CHAffy_EUR --keep CHAffy_to_keep.txt --make-bed --out CHAffy_EUR_PGCED3 # 670488 variants and 202 people pass filters and QC
+
+# Warning: Nonmissing nonmale Y chromosome genotype(s) present; many commands treat these as missing.
+# Total genotyping rate is 0.996691.
+
+# Update case_control info to the plink file
+plink -bfile  CHAffy_EUR_PGCED3 --pheno CHAffy_plink_update_case_control_28032022.txt --make-bed --out CHAffy_EUR_PGCED3_cases # Among remaining phenotypes, 202 are cases and 0 are controls
+```
+
+### NBR + GLAD Genotyping data
+```{bash, eval = FALSE}
+# Create a file of only FID and IID of cases or controls
+awk '{print $1,$2}' GLAD_NBR_plink_update_case_control_28032022.txt > GLAD_NBR_to_keep.txt # 17,580 to keep
+
+# Use this file to extract only cases or controls from genotype data and create new file
+plink -bfile NBRv1_GLADv2_EUR --keep GLAD_NBR_to_keep.txt --make-bed --out GLAD_NBR_PGCED3 # 524756 variants and 11,018 people pass filters and QC.
+
+# Warning: 78964 het. haploid genotypes present (see GLAD_NBR_PGCED3.hh ); many commands treat these as missing.
+# Warning: Nonmissing nonmale Y chromosome genotype(s) present; many commands treat these as missing.
+# Total genotyping rate in remaining samples is 0.995879.
+
+# Update case_control info to the plink file
+plink -bfile  GLAD_NBR_PGCED3 --pheno GLAD_NBR_plink_update_case_control_28032022.txt --make-bed --out GLAD_NBR_PGCED3_case_control # Among remaining phenotypes, 6538 are cases and 4480 are controls
+```
+
+## 2. Liftover b37 to b38
+```{bash, eval = FALSE}
+## Need to convert .map into BED format (not same as plink .bed) in order to use liftOver. Use "--recode" (this command changes to ped file)
+## --output-chr MT flag changes chromosome tags from 23,24,25,26 to X,Y,XY,MT
+plink --bfile CHAffy_EUR_PGCED3_cases --output-chr MT --recode --out CHAffy_EUR_PGCED3_cases_b37
+
+# Use wrapper liftOverplink.py to liftover to B38
+python liftOverPlink.py \
+--map CHAffy_EUR_PGCED3_cases_b37.map \
+--ped CHAffy_EUR_PGCED3_cases_b37.ped \
+--chain hg19ToHg38.over.chain.gz \
+--bin liftOver \
+--out CHAffy_EUR_PGCED3_cases_b38
+
+## Creating binary files
+plink --allow-extra-chr --file CHAffy_EUR_PGCED3_cases_b38 --make-bed --out CHAffy_EUR_PGCED3_cases_b38 # 668801 variants and 202 people pass filters and QC
+```
+
+## 2. Charlotte's Helix; Find duplicated chromosome positions 
+NB: Already done in GLAD & NBR.
+```{r bash, eval = FALSE}
+awk '{print $1, $4}' CHAffy_EUR_PGCED3_cases_b38.bim | sort | uniq -c | awk '$1>1' | awk '{print $2,$3}' > CHAffy_exl_pos_dup
+
+awk '{print $1,$4,$2}' CHAffy_EUR_PGCED3_cases_b38.bim | sort > CHAffy_exl_pos_var
+
+awk -F' ' 'NR==FNR{c[$1$2]++;next};c[$1$2] > 0' CHAffy_exl_pos_dup CHAffy_exl_pos_var | awk '{print $3}' > CHAffy_snps_excluded.txt
+
+plink --bfile CHAffy_EUR_PGCED3_cases_b38 --exclude CHAffy_snps_excluded.txt --allow-extra-chr --make-bed --out CHAffy_EUR_PGCED3_cases_b38_exl
+```
+
+## 3. Merge two dataset by chromosome position
+"--merge-equal-pos" = merge by chromosome position
+NB: Originally got low call rate (~0.7). This is because Lee QC'd the Charlotte's Helix and GLAD/NBR data separately, so different variants were kept depending on dataset. Lee did additional QC'ing on the merged data; removed variants with low call rate and low call rate of sample (kept going back and forth until high call rate of merged data).
+
+Will not filter out individual people; general rule of group (only remove variants not people.)
+```{bash, eval = FALSE}
+plink -bfile GLAD_NBR_PGCED3_case_control --bmerge CHAffy_EUR_PGCED3_cases_b38_exl --allow-extra-chr --merge-equal-pos --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38 # 698503 variants and 11220 people pass filters and QC (6740 are cases and 4480 are controls)
+
+# Multiple position error is gone! (Therefore this was because of b37 being used rather than b38)
+```
+
+## Imputed data
+```{bash, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=0-48:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=4
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/vcf/mergevcf%j.out
+#SBATCH --array=1-23%23
+
+echo ${SLURM_ARRAY_TASK_ID}
+
+CHR=${SLURM_ARRAY_TASK_ID}
+
+echo ${CHR}
+
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/vcf
+
+module add apps/samtools
+
+bcftools merge -m all -i MAF:join,R2:join /mnt/lustre/groups/gwased/data_raw/KCL_ED/KCLED_GSAMD/CharlotteHelixAffy/EUR/EUR_maf0/TopMed_Imputation_freeze8/04.QCed_Imputed_data_VCF/rsid_chr${CHR}_maf001_R2_3.vcf.gz /mnt/lustre/groups/bioresource/Public/NBRv1/v1_imputed_data/vcf/NBR_rsid_chr${CHR}_maf1_R2_3.vcf.gz /mnt/lustre/groups/bioresource/Public/GLADv2/v2_imputed_data/vcf/GLAD_rsid_chr${CHR}_maf1_R2_3.vcf.gz -Oz > /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/vcf/CHAffy_GLADv2_NBRv1_EUR_imputed_maf001_R2_3_chr${CHR}.vcf.gz
+```
+
+## Generate pfile
+**Keep only bialleles in vcf**
+```{bash, eval = FALSE}
+# Keep Bialleles only from imputed KCEED vcf files
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=0-48:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=4
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/vcf /bialleles_only%j.out
+#SBATCH --array=1-23%23
+
+echo ${SLURM_ARRAY_TASK_ID}
+CHR=${SLURM_ARRAY_TASK_ID}
+echo ${CHR}
+
+module add apps/samtools
+
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/vcf
+
+bcftools view -m2 -M2 -v snps /mnt/lustre/groups/gwased/data_raw/CH_NBRctrl_ED/imputed/vcf/CHAffy_GLADv2_NBRv1_EUR_imputed_maf001_R2_3_chr${CHR}.vcf.gz -Oz > /mnt/lustre/groups/gwased/data_raw/CH_NBRctrl_ED/imputed/vcf/CHAffy_GLADv2_NBRv1_EUR_biallele_chr${CHR}_maf001_R2_3.vcf.gz
+```
+
+**make a sex file to update**
+```{r bash, eval = FALSE}
+awk ‘{print $1,$2,$5}’ /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/CHAffy_GLAD_NBR_EUR_PGCED3_b38.fam > CHAffy_GLAD_NBR_Sex_update.txt
+```
+
+**Convert vcf to pfile and update SEX**
+```{bash, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=0-48:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=4
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/pfile/pfile%j.out
+#SBATCH --array=1-23%23
+
+
+echo ${SLURM_ARRAY_TASK_ID}
+CHR=${SLURM_ARRAY_TASK_ID}
+echo ${CHR}
+module add apps/plink2
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/vcf
+plink2 --vcf /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/vcf /CHAffy_GLADv2_NBRv1_EUR_biallele_chr${CHR}_maf001_R2_3.vcf.gz dosage=HDS --id-delim --update-sex --make-pgen --out /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed /pfile/ CHAffy_GLADv2_NBRv1_EUR_imputed_biallele_chr${CHR}_maf001_R2_3
+```
+
+**Create plink rsid annotation files**
+```{bash, eval = FALSE}
+gunzip /mnt/lustre/groups/gwased/data_raw/KCL_ED/KCLED_GSAMD/CharlotteHelixAffy/EUR/EUR_maf0/TopMed_Imputation_freeze8/04.QCed_Imputed_data_VCF/rsid/*.bed.gz
+
+for Chr in {1..23}
+
+  do
+
+    awk '{print $1":"$2":"$3":"$4, $5}' /mnt/lustre/groups/gwased/data_raw/KCL_ED/KCLED_GSAMD/CharlotteHelixAffy/EUR/EUR_maf0/TopMed_Imputation_freeze8/04.QCed_Imputed_data_VCF/rsid/annotation_chr${Chr}_dots_nodups.bed > /mnt/lustre/groups/gwased/data_raw/KCL_ED/KCLED_GSAMD/CharlotteHelixAffy/EUR/EUR_maf0/TopMed_Imputation_freeze8/04.QCed_Imputed_data_VCF/rsid/plink_ann_chr${Chr}.txt
+
+  done
+```
+
+**Update rsIDs to the pfile**
+```{bash, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --output=/users/k1184869/%j.out --mem=36000 --ntasks=1
+
+module add apps/plink2/2.0.0a2
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/pfile
+
+for Chr in {1..23}
+
+  do
+
+    plink2 --pfile /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed /pfile/ CHAffy_GLADv2_NBRv1_EUR_imputed_biallele_chr${CHR}_maf001_R2_3 --update-name /mnt/lustre/groups/gwased/data_raw/KCL_ED/KCLED_GSAMD/CharlotteHelixAffy/EUR/EUR_maf0/TopMed_Imputation_freeze8/04.QCed_Imputed_data_VCF/rsid/plink_ann_chr${Chr}.txt --make-pgen --out /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed /pfile/ CHAffy_GLADv2_NBRv1_EUR_imputed_biallele_rsid_maf001_R2_3_chr${Chr}
+
+  done
+
+```
+
+**Keep samples for Regenie**
+```{bash, eval = FALSE}
+for Chr in {1..23}
+
+  do
+
+    plink2 --pfile /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed /pfile/CHAffy_GLADv2_NBRv1_EUR _imputed_biallele_rsid_maf001_R2_3_chr${Chr} --keep
+
+######/ids_qced.txt --make-pgen --out CHAffy_GLADv2_NBRv1_EUR_imputed_biallele_rsid_SEX_exl_maf001_R2_3_chr${Chr}
+
+  done
+
+```
+
+# QC genotyping data
+## MAF 0.01
+```{bash, eval = FALSE}
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38 --maf 0.01 --allow-extra-chr --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_maf1
+```
+53728 variants removed due to minor allele threshold(s)
+644775 variants and 11220 people pass filters and QC.
+
+## Iterative missingness
+NB: Not filtering out individuals.
+**Filter out Variants call rate < 98%** 
+```{bash, eval = FALSE}
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_maf1 --geno 0.02 --allow-extra-chr --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02
+# 492266 variants and 11220 people pass filters and QC.
+# Among remaining phenotypes, 6740 are cases and 4480 are controls.
+```
+
+**Exclude with differences in call rates of > 2% between cases and contols**
+```{bash, eval = FALSE}
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02 --test-missing --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_ca_co
+# 492266 variants and 11220 people pass filters and QC.
+# Among remaining phenotypes, 6740 are cases and 4480 are controls.
+
+awk '$4>$3+0.02 {print $2}' CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_ca_co.missing > SNPsdiff_ca_co_1
+awk '$3>$4+0.02 {print $2}' CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_ca_co.missing > SNPsdiff_ca_co_2
+cat SNPsdiff_ca_co_1 SNPsdiff_ca_co_2 > SNPsdiff_ca_co.txt
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02 --exclude SNPsdiff_ca_co.txt --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl
+# 490750 variants and 11220 people pass filters and QC
+# Among remaining phenotypes, 6740 are cases and 4480 are controls
+```
+
+## Hardy-Weinberg checks
+NB: Plink only applies hwe to controls automatically. You want to be more stringent with the controls; if out of hwe, this could be due to contamination or something wrong. But in cases when out of hwe, this might be because of a causal variant (so need to apply more lenient threshold!)
+**Apply cut-off at 10^-6 for CONTROLS**
+```{bash, eval = FALSE}
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl --hwe 0.000001 --write-snplist --allow-no-sex --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl
+# 22 variants removed due to Hardy-Weinberg exact test (this is low because the two datasets have been QC'd separately already. Can be 1000+)
+# 490728 variants and 11220 people pass filters and QC.
+# Among remaining phenotypes, 6740 are cases and 4480 are controls.
+```
+
+```{r bash, eval = FALSE}
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl --hardy --out hardycheck
+```
+
+**Create snp_lists for CASES at threshold 10^-10**
+```{bash, eval = FALSE}
+awk '$3=="AFF" && $9 < 0.0000000001 {print $2}' hardycheck.hwe | sort -k9 -gr| uniq > affhwe10removed.txt
+# "AFF" = affected individuals, i.e., cases
+```
+
+**Extract variants HWE < 10^-10 for cases**
+```{bash, eval = FALSE}
+plink -bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl --exclude affhwe10removed.txt --allow-no-sex --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas
+# 490728 variants and 11220 people pass filters and QC. [nothing removed!]
+# Among remaining phenotypes, 6740 are cases and 4480 are controls.
+```
+
+## LD pruning 
+You need to LD pruning for PCA. [Step 1 of Regenie will NOT use pruned version]
+Select one SNP of a selection that are in high LD with eachother.
+"--indep-pairwise 1500 150" checking every 1500 SNPs and scale down to 150. ['window' moves continuously]
+"0.2" r2; level of LD you are checking (this ranges; some people use different thresholds)
+```{bash, eval = FALSE}
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas --indep-pairwise 1500 150 0.2 --allow-no-sex --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_Pre
+```
+Pruned 19778 variants from chromosome 1, leaving 18051.
+Pruned 20710 variants from chromosome 2, leaving 17755.
+Pruned 17337 variants from chromosome 3, leaving 15048.
+Pruned 16326 variants from chromosome 4, leaving 14287.
+Pruned 15271 variants from chromosome 5, leaving 13780.
+Pruned 21407 variants from chromosome 6, leaving 12965.
+Pruned 13760 variants from chromosome 7, leaving 12388.
+Pruned 13167 variants from chromosome 8, leaving 11579.
+Pruned 10975 variants from chromosome 9, leaving 10274.
+Pruned 12802 variants from chromosome 10, leaving 11244.
+Pruned 12851 variants from chromosome 11, leaving 10810.
+Pruned 11925 variants from chromosome 12, leaving 10859.
+Pruned 8306 variants from chromosome 13, leaving 8126.
+Pruned 8278 variants from chromosome 14, leaving 7491.
+Pruned 7850 variants from chromosome 15, leaving 7110.
+Pruned 8802 variants from chromosome 16, leaving 8076.
+Pruned 7949 variants from chromosome 17, leaving 7460.
+Pruned 7111 variants from chromosome 18, leaving 7249.
+Pruned 7001 variants from chromosome 19, leaving 5865.
+Pruned 6324 variants from chromosome 20, leaving 6275.
+Pruned 3468 variants from chromosome 21, leaving 3638.
+Pruned 3962 variants from chromosome 22, leaving 3692.
+Pruned 5720 variants from chromosome 23, leaving 5537.
+Pruned 77 variants from chromosome 24, leaving 12. [Y chromosome is very small!]
+Pruning complete.  261157 of 490728 variants removed.
+
+**Extract prune.in**
+"prune.in" i.e., variants to keep
+```{bash, eval = FALSE}
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas --extract CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_Pre.prune.in --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned
+# Total genotyping rate is 0.996677.
+# 229571 variants and 11220 people pass filters and QC.
+```
+
+**Make highLDregion and Autosomalexcludes SNP file**
+So far, we have pruned based on normal way. But this normal way doesn't recognise some areas that are in high LD but are physically far away.
+Inner region of chromosomes (especially 6 and 9) has REALLY high LD. 
+```{bash, eval = FALSE}
+awk -f highLDregions4bim_b38.awk CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned.bim > highLDexcludes
+awk '($1 < 1) || ($1 > 22) {print $2}' CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned.bim > autosomeexcludes # Selects only the sex chromosomes (sometimes chromosome 0)
+cat highLDexcludes autosomeexcludes > highLD_and_autosomal_excludes
+```
+
+**Exclude highLDregion and Autosomalexcludes SNPs**
+```{bash, eval = FALSE}
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned --exclude highLD_and_autosomal_excludes --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr # Now only contains autosomal chromosomes and those not in high LD
+
+# 220809 variants and 11220 people pass filters and QC.
+# Among remaining phenotypes, 6740 are cases and 4480 are controls.
+```
+
+## Sex check 
+
+The homozygosity rates across all X-chromosomal genetic markers are computed and compared with the expected rates (typically 0.8 for males).
+<br>
+<br>
+The F statistics are calculated for all samples, where F describes the statistically expected level of heterozygosity on the X chromosome. Samples with an F statistics above 0.8 are presumed to be genetically Male while samples with an F statistics below 0.2 are presumed to be genetically Female.
+
+**Running sex check**
+```{bash, eval = FALSE}
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned --check-sex --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_sexcheck
+# --check-sex: 5537 Xchr and 0 Ychr variant(s) scanned, 76 problems detected.
+```
+
+```{r download sex check file}
+# Download sex check file to local machine
+# rsync k19047584@login.rosalind.kcl.ac.uk:/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_sexcheck.sexcheck /Users/helenadavies/Desktop
+
+Sexcheck <-read.table("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/PGCED_Freeze3_KCL_pheno/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_sexcheck.sexcheck",head=T)
+
+Sexcheck_2 <-Sexcheck[Sexcheck$PEDSEX == 2, ]
+Sexcheck_1 <-Sexcheck[Sexcheck$PEDSEX == 1, ]
+Sexcheck_0 <-Sexcheck[Sexcheck$PEDSEX == 0, ]
+hist(Sexcheck_2$F, 100, col=rgb(1,0,0,0.5))
+hist(Sexcheck_1$F, 100, col=rgb(0,1,0,0.5), add=T)
+hist(Sexcheck_0$F, 100, col=rgb(0,0,1,0.5), add=T)
+```
+
+```{r histogram}
+hist(Sexcheck_2$F, 100, col=rgb(1,0,0,0.5), ylim=c(0,20))
+hist(Sexcheck_1$F, 100, col=rgb(0,1,0,0.5), add=T)
+hist(Sexcheck_0$F, 100, col=rgb(0,0,1,0.5), add=T)
+```
+
+**Sex discrepancies**
+```{bash, eval = FALSE}
+grep PROBLEM CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_sexcheck.sexcheck > sexmismatch.csv
+```
+
+```{r, echo=FALSE}
+# rsync k19047584@login.rosalind.kcl.ac.uk:/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/sexmismatch.csv /Users/helenadavies/Desktop 
+
+Sexmismatch<- read.csv("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/PGCED_Freeze3_KCL_pheno/sexmismatch.csv", header = TRUE, sep = ",")
+
+library("tidyverse")
+Sexmismatch %>%
+  kableExtra::kbl(caption = "A total of  sex discrepancies have been identified and are listed below") %>%
+  kableExtra::kable_styling()
+```
+
+**We recommend that analysts drop individuals with sex discrepancies from their analyses.**
+When the homozygosity rate is more than 0.2 but less than 0.8 the genotype data is inconclusive regarding the sex of an individual and these are marked in column 4 with a 0.
+
+**Make a sex warning list and exclude sex_mismatch samples**
+```{bash, eval = FALSE}
+awk '$4 == 0 {print $1,$2}' sexmismatch.csv > sex_warning.txt
+awk '$4 != 0 {print $1,$2}' sexmismatch.csv > sexmismatch_excl.txt # removing 74
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr --remove sexmismatch_excl.txt --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl
+# 220809 variants and 11146 people pass filters and QC.
+# Among remaining phenotypes, 6713 are cases and 4433 are controls.
+```
+
+## Heterozygosity Check
+Fhat1: (<observed hom. count> - <expected count>) / (<total observations> - <expected count>)
+Negative FHat = more heterozygosity/less homozygosity
+Positve FHat = less heterozygosity/more homozygosity
++/- 0.2 = outlier
+Can highlight contamination (less than 0.2) or inbreeding (more than 0.2)
+https://www.cog-genomics.org/plink/1.9/basic_stats#ibc
+```{bash, eval = FALSE}
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl --ibc --allow-no-sex --make-bed --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl_hetcheck
+# 220809 variants and 11146 people pass filters and QC.
+# Among remaining phenotypes, 6713 are cases and 4433 are controls.
+# 220809 markers complete.
+```
+
+```{r}
+# rsync k19047584@login.rosalind.kcl.ac.uk:/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl_hetcheck.ibc /Users/helenadavies/Desktop 
+
+Het<- read.table("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/PGCED_Freeze3_KCL_pheno/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl_hetcheck.ibc", head=T)
+
+hist(Het$Fhat2, 100)
+```
+
+```{r}
+Het<-read.table("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/PGCED_Freeze3_KCL_pheno/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl_hetcheck.ibc", head=T)
+
+# rsync k19047584@login.rosalind.kcl.ac.uk:/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_sexcheck.sexcheck /Users/helenadavies/Desktop 
+
+Sexcheck<-read.table("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/PGCED_Freeze3_KCL_pheno/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_sexcheck.sexcheck", head=T)
+Het_Sex<-merge(Het,Sexcheck)
+with(Het_Sex,plot(Fhat2,F, pch="."))
+```
+
+One group appears at Fhat2 > 0.2 would be different ancestry
+
+**Some appears at Fhat2 < -0.2 would be contaminated or different ancestry**
+```{bash, eval = FALSE}
+awk '$5<-0.2 {print $1,$2}' CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl_hetcheck.ibc > excludeIDs_het.txt # None to exclude
+```
+
+## Cryptic relatedness 
+
+**Pairwise identical-by-descent (IBD) check**
+NB: Need to submit as job.
+"vi IBD_check.sh" creates a script file to submit to sbatch
+```{bash, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --output=/users/k19047584/IBD_check%j.out --mem=24000
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped
+
+module add apps/plink/1.9.0b6.10
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl --genome --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.IBD
+
+"sbatch -p brc IBD_check.sh" # above is all in script file called 'IBD_check.sh'. Can run using this code in terminal.
+```
+
+You need genome file for making PCA.
+```{r, eval=FALSE}
+# rsync k19047584@login.rosalind.kcl.ac.uk:/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.IBD.genome /Users/helenadavies/Desktop 
+
+# Need to download again
+IBD <- data.table::fread("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/PGCED_Freeze3_KCL_pheno/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.IBD.genome", 
+             data.table=F, select=c("IID1", "IID2", "PI_HAT"))
+hist(IBD$PI_HAT, 100, ylim=c(0,50))
+```
+
+**Check Pi_Hat**
+# Everything above threshold of pi_hat is considered to be cryptic relatedness or duplicates.
+```{bash, eval = FALSE}
+## Check >9 Pi_Hat individuals: duplicates or twins
+awk '$10 > 0.9 {print $0}' CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.IBD.genome > pihat_over_9 # 20 people
+
+## Check 0.4 < $10 < 0.6 Pi_Hat individuals: Parent-offspring
+awk '$10 > 0.4 && $10 < 0.6 {print $0}' CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.IBD.genome > pihat_btw_4_6 # 64 people
+```
+
+**Genetically Identical or duplicates**
+```{r, echo = FALSE}
+# rsync k19047584@login.rosalind.kcl.ac.uk:/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/pihat_over_9 /Users/helenadavies/Desktop
+
+pihat_over_9<- read.csv("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/PGCED_Freeze3_KCL_pheno/pihat_over_9", header = TRUE, sep = ",")
+pihat_over_9 %>%
+  kableExtra::kbl(caption = "Duplicats or twins") %>%
+  kableExtra::kable_styling()
+```
+
+**Parent-offspring**
+```{r, echo = FALSE}
+# rsync k19047584@login.rosalind.kcl.ac.uk:/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/pihat_btw_4_6 /Users/helenadavies/Desktop
+
+pihat_btw_4_6<- read.csv("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/PGCED_Freeze3_KCL_pheno/pihat_btw_4_6", header = TRUE, sep = ",")
+pihat_btw_4_6 %>%
+  kableExtra::kbl(caption = "parent-offspring") %>%
+  kableExtra::kable_styling()
+```
+
+**Calculate average IBD per individual using R, output outliers (defined as more than sigma standard deviations above the mean, as provided by the user)** hal here
+```{bash, eval = FALSE} 
+#!/bin/bash -l
+#SBATCH --output=/users/k19047584/IBD_check%j.out --mem=24000
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped
+module add apps/R/3.6.0
+R --file=IndividualIBD.R --args CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl 3
+```
+outliers @ Sigma +3SD
+sbatch -p brc IndividualIBD_bash_script.sh
+
+## NEW 18.05.22: We now want to exclude *people* who are IBD outliers (we wouldn't normally exclude people, only SNPs.)
+Need to create file containing FIDs and IIDs of these people. Then added to 'remove' flag in Regenie
+NR >1 means to skip the first line
+"tr ' ' '\t'" means tab-separated
+```{r bash, eval = FALSE}
+awk 'NR > 1 {print $2,$3}' CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.IBD_INDIV_outliers.txt | tr ' ' '\t' > IBD_INDIV_FID_IID_2.txt
+# Remove blank space manually after opening using vim.
+```
+
+```{r, echo = FALSE}
+IndividualIBD_outlier<- read.csv("IndividualIBDoutlier.csv", header = TRUE, sep = ",")
+IndividualIBD_outlier %>%
+  kbl(caption = "IndividualIBD_outlier") %>%
+  kable_styling()
+```
+
+# PCA Projection
+```{bash, eval = FALSE}
+# Go to interactive job
+srun -p brc --nodes=1 --ntasks=12 --pty /bin/bash
+
+# Load plink2
+module add apps/plink2/2.0.0a2
+
+# The IBD outliers file has a blank row at the bottom that needs to be removed - do manually!
+# 126 outliers = CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.IBD_INDIV_outliers.txt
+
+# "-wvf" = not matched. Select everything other than the outlier. Outliers are people who are different from the average IBD of the rest of the group (this is probably either different ancestry, contamination, or something else.). These people would have a whole new  PC so need to exlcude from PCA (for now).
+# If you ran PCA on everyone (without excluding related people etc), your PCA would be skewed. SO you need to make PCA on unrelated individuals, then project related individuals onto it. This means that related people do not end up in their own separate clusters.
+# Need to first filter out the IBD people because they are similar to EVERYONE; if you didn't filter these people out, then this will include EVERYONE (e.g., all participants will be over 0.06 similar to IBD outlier participant)
+LANG=C fgrep -wvf <(awk 'NR > 1 && $2 != "" {print $2}' CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.IBD_INDIV_outliers.txt) CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.IBD.genome | awk '$10 >= 0.0625 {print $1, $2}' > CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10.Related_To_Others.txt # this is people who are at least more than 0.0625 related, i.e. 'a bit related'.
+
+# Merge with IBD outliers file.
+# Outliers and related individuals are problematic for PCA
+cat CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10.Related_To_Others.txt <(awk 'NR > 1 && $2 != "" {print $2, $3}' CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.IBD_INDIV_outliers.txt) > CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10.Related_To_Others_And_IBD_Outliers.txt # 297
+
+# Limit to unique individuals
+# Get rid of duplicated people, e.g., if they are an outlier AND a related individual
+sort -u CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10.Related_To_Others_And_IBD_Outliers.txt > CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10.Related_To_Others_And_IBD_Outliers_Unique.txt # 294
+
+# Do PCA on unrelateds
+# 1. Removed related participants and IBD outliers from whole sample
+# 2. Do PCA and calculate "var-wts" variant weight (submit as job)
+sbatch -p brc PCA_unrelated.sh
+#!/bin/bash -l
+#SBATCH --output=/users/k19047584/PCA_unrelated%j.out --mem=24000
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped
+module add apps/plink2/2.0.0a2
+plink2 --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl --remove  CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10.Related_To_Others_And_IBD_Outliers_Unique.txt --pca var-wts --freq counts --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.no.relatives.pca --threads 11 --allow-extra-chr 
+# 6503 cases and 4350 controls remaining after main filters.
+
+
+# Project all on pcs (submit as job)
+# 1. Run again and project all related individuals onto it. e.g., twins, for example, should project onto EXACTLY the same point (submit as job)
+sbatch -p brc PCA_project_all.sh
+#!/bin/bash -l
+#SBATCH --output=/users/k19047584/project_all%j.out --mem=24000
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped
+module add apps/plink2/2.0.0a2
+plink2 --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl \
+  --read-freq CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.no.relatives.pca.acount \
+  --score CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas.LD_pruned_autosomalchr_excl.no.relatives.pca.eigenvec.var 2 4 header-read no-mean-imputation variance-standardize \
+  --score-col-nums 5-14 \
+  --out CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10.ALL_PCA_Projection \
+  --allow-extra-chr
+  --threads 11   
+```
+
+**PCA plots in R**
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(data.table)
+library(ggplot2) 
+library(lfactors)
+library(purrr)
+library(data.table)
+library(plotly)
+```
+
+```{r PCA plot}
+# rsync k19047584@login.rosalind.kcl.ac.uk:/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10.ALL_PCA_Projection.sscore /Users/helenadavies/Desktop
+
+file <- read.csv("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/PGCED_Freeze3_KCL_pheno/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10.ALL_PCA_Projection.sscore",
+                 header = TRUE,
+                 sep = "\t")
+
+# Interactive map
+# PC 1 and 2
+library(plotly)
+p1and2 <- ggplot(data = file,
+                 aes(x = PC1_AVG,
+                     y = PC2_AVG)) +
+geom_point () +
+scale_x_continuous(breaks = c(-0.040,-0.035, -0.030,-0.025,-0.020,-0.015,-0.010, -0.005, -0.0035, 0.000, 0.005, 0.010, 0.015, 0.020, 0.023,0.025, 0.030, 0.035, 0.040)) +
+scale_y_continuous(breaks = c(-0.040,-0.020,0.000,0.013,0.020,0.040,0.060,0.080,0.100,0.120,0.140,0.160)) +
+labs(x = "PC1", y = "PC2")
+fig1and2 <- ggplotly(p1and2)
+fig1and2
+
+# PC 1 and 3
+p1and2 <- ggplot(data = file,aes(x = PC1_AVG, y = PC3_AVG)) +
+geom_point () +
+scale_x_continuous(breaks = c(-0.040,-0.035, -0.030,-0.025,-0.020,-0.015,-0.010,-0.005,0.000, 0.005, 0.010, 0.015, 0.020, 0.025, 0.030, 0.035, 0.040)) +
+scale_y_continuous(breaks = c(-0.020,0.000,0.020,0.040,0.060,0.080,0.100,0.120,0.140,0.160)) +
+labs(x = "PC1", y = "PC3")
+fig1and2 <- ggplotly(p1and2)
+fig1and2
+
+# PC 2 and 3
+p2and3 <- ggplot(file,aes(x = PC2_AVG, y = PC3_AVG)) +
+geom_point () +
+scale_x_continuous(breaks = c(-0.050, -0.045,-0.040,-0.035, -0.030,-0.025,-0.020,-0.015,-0.010,-0.005,0.000, 0.005, 0.010, 0.015, 0.020, 0.025, 0.030, 0.035, 0.040)) +
+scale_y_continuous(breaks = c(-0.020,0.000,0.020,0.040,0.060,0.080,0.100,0.120,0.140,0.160)) +
+labs(x = "PC2", y = "PC3")
+fig2and3 <- ggplotly(p2and3)
+fig2and3
+
+# PC 3 and 4
+p3and4 <- ggplot(file,aes(x = PC3_AVG, y = PC4_AVG)) +
+geom_point () +
+scale_x_continuous(breaks = c(-0.045,-0.040, -0.030,-0.020,-0.010,0.000, 0.010, 0.020, 0.030, 0.040, 0.050, 0.060)) +
+scale_y_continuous(breaks = c(-0.020,0.000,0.020,0.040,0.060,0.080,0.100,0.120,0.140,0.160)) +
+labs(x = "PC3", y = "PC4")
+fig3and4 <- ggplotly(p3and4)
+fig3and4
+```
+
+# GWAS by Regenie
+/mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS
+## Make a phenotype file
+```{bash, eval = FALSE}
+# merge two phenotype files
+cat GLAD_NBR_PGCED3_pheno_formatted_28032022.txt <(awk 'NR >1 {print $0}' CHAffy_PGCED3_pheno_formatted_28032022.txt) > CHAffy_GLAD_NBR_PGCED3_pheno_formatted_28032022.txt # 17,783
+
+# exclude sex mismatch in pheno 
+LANG=C fgrep -wvf <(awk '$2 != "" {print $2}' /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/sexmismatch_excl.txt) CHAffy_GLAD_NBR_PGCED3_pheno_formatted_28032022.txt | awk '{print $0}' > CHAffy_GLAD_NBR_PGCED3_pheno_formatted_Sex_exl_06042022.txt # 17,709
+```
+
+## Exclude sex mismatch in genotyping data
+Genotyping data to use = after HWE10cas.
+The pruning etc was done for PCA
+```{r bash, eval = FALSE}
+module add apps/plink/1.9.0b6.10
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped
+plink --bfile CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas --remove sexmismatch_excl.txt --make-bed --out /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_EUR_PGC3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas_sex_exl
+# Total genotyping rate in remaining samples is 0.996683.
+# 490728 variants and 11146 people pass filters and QC.
+# Among remaining phenotypes, 6713 are cases and 4433 are controls.
+```
+
+## In pheno file, keep only participants with genotype data
+Collect IDs from column 2 from the fam file (11146 ids) and find the IDs in pheno file... and keep them only in CHAffy_GLAD_NBR_PGCED3_pheno_formatted_Sex_exl_06042022.txt
+```{bash, eval = FALSE}
+phenotypeLANG=C fgrep -wf <(awk '$2 != "" {print $2}' /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_EUR_PGC3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas_sex_exl.fam) /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_PGCED3_pheno_formatted_28032022.txt | awk '{print $0}' > CHAffy_GLAD_NBR_PGCED3_pheno_formatted_Sex_exl_06042022.txt
+```
+
+## Make a covariate file
+```{bash, eval = FALSE}
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS
+
+# Merge batch info
+cat CHAffy_batch_info.txt GLADv2_NBRv1_batch_info.txt > CHAffy_GLAD_NBR_PGCED3_batch_info.txt 
+
+# Get IDs
+awk '{print $1,$2}' CHAffy_GLAD_NBR_EUR_PGC3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas_sex_exl.fam > CHAffy_GLAD_NBR_PGCED3_ids_qced.txt
+
+# Join IDs with batch
+join -1 2 -2 2 \
+<(sort -k2,2 CHAffy_GLAD_NBR_PGCED3_ids_qced.txt) \
+<(sort -k2,2 CHAffy_GLAD_NBR_PGCED3_batch_info.txt) | awk '{print $1,$2,$4}' > CHAffy_GLAD_NBR_PGCED3_batch.txt
+
+# Join batch/IDs with PCs
+join -1 2 -2 2 \
+<(sort -k2,2 CHAffy_GLAD_NBR_PGCED3_batch.txt) \
+<(sort -k2,2 /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/CHAffy_GLAD_NBR_EUR_PGCED3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10.ALL_PCA_Projection.sscore) | awk '{print $1,$2,$3,$4,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, $16, $17}' > CHAffy_GLAD_NBR_PGCED3_covariates.txt
+
+# Rename columns
+cat \
+<(echo "FID IID batch pc1 pc2 pc3 pc4 pc5 pc6 pc7 pc8 pc9 pc10") \
+<(awk '{print $1, $2, $3, $7, $8, $9, $10, $11, $12, $13, $14, $15,$16}' CHAffy_GLAD_NBR_PGCED3_covariates.txt) | \
+tr ' ' '\t' > CHAffy_GLAD_NBR_PGCED3_covariates_aligned.txt
+```
+
+**MT_Coding**
+Recoding for use in regenie (wants X and XY instead of 23 and 24)
+```{bash, eval = FALSE}
+module add apps/plink/1.9.0b6.10
+plink -bfile CHAffy_GLAD_NBR_EUR_PGC3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas_sex_exl \
+--chr 1-22,X,XY \
+--make-bed \
+--out CHAffy_GLAD_NBR_EUR_PGC3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas_sex_exl_MT_Coding \
+--output-chr MT \
+
+# Warning: 466 het. haploid genotypes present (see
+# CHAffy_GLAD_NBR_EUR_PGC3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas_sex_exl_MT_Coding.hh
+# ); many commands treat these as missing.
+# Total genotyping rate is 0.996683.
+# 490639 variants and 11146 people pass filters and QC.
+# Among remaining phenotypes, 6713 are cases and 4433 are controls.
+```
+Lee said warning is fine, happens because of Y chromosome: 
+.hh (heterozygous haploid and nonmale Y chromosome call list)
+Produced automatically when the input data contains heterozygous calls where they shouldn't be possible (haploid chromosomes, male X/Y), or there are nonmissing calls for nonmales on the Y chromosome.
+Male has only one Y chr... which means there should not be heterozygous snps on Y chr but pseudo snps exits between X and Y can make the hetero
+
+## Add header to pheno file 
+```{bash, eval = FALSE}
+cat \
+<(echo "FID IID AN ANR ANBP BE_broad BE_narrow") \
+<(awk '{print $0}' CHAffy_GLAD_NBR_PGCED3_pheno_formatted_Sex_exl_06042022.txt) | \
+tr ' ' '\t' > CHAffy_GLAD_NBR_PGCED3_pheno_formatted_aligned.txt
+```
+
+## Regenie Stage1 for STEP1
+sbatch Run_ReGENIE_stage1_step1_CHAffy_GLAD_NBR.sh
+```{bash, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=48:00:00
+#SBATCH --ntasks=8
+#SBATCH --nodes=1
+#SBATCH --mail-user=helena.davies@kcl.ac.uk
+#SBATCH --mail-type=ALL
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/output/Run_regenie_Stage1_STEP1.%j.out
+
+export MKL_NUM_THREADS=8
+export NUMEXPR_NUM_THREADS=8
+export OMP_NUM_THREADS=8
+
+module add utilities/use.dev
+module add apps/regenie/2.2.4-mkl
+
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS
+njobs=4
+
+base_command="regenie \
+--step 1 \
+--bt \  ## specify that traits are binary with 0=control,1=case,NA=missing (default is quantitative)
+--covarFile /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_PGCED3_covariates_aligned.txt \
+--phenoFile /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_PGCED3_pheno_formatted_aligned.txt \
+--remove /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/IBD_INDIV_FID_IID_2.txt \
+--covarColList batch,pc{1:10} \
+--catCovarList batch \
+--maxCatLevels 6 \
+--bsize 1000  \
+--threads 8 \
+--gz"
+
+$base_command \
+--bed /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_EUR_PGC3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas_sex_exl_MT_Coding \
+--out /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis/fit_bin_l0 \
+--split-l0 /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis/fit_bin_parallel,$njobs
+```
+
+## Regenie Stage2 for STEP1
+sbatch Run_ReGENIE_stage2_step1_CHAffy_GLAD_NBR.sh
+```{bash, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=48:00:00
+#SBATCH --ntasks=8
+#SBATCH --nodes=1
+#SBATCH --mail-user=helena.davies@kcl.ac.uk
+#SBATCH --mail-type=ALL
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/output/Run_regenie_Stage2_STEP1.%j.out
+
+export MKL_NUM_THREADS=8
+export NUMEXPR_NUM_THREADS=8
+export OMP_NUM_THREADS=8
+
+module add utilities/use.dev
+module add apps/regenie/2.2.4-mkl
+
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS
+
+njobs=4
+
+base_command="regenie \
+--step 1 \
+--bt \  ## specify that traits are binary with 0=control,1=case,NA=missing (default is quantitative)
+--covarFile /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_PGCED3_covariates_aligned.txt \
+--phenoFile /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_PGCED3_pheno_formatted_aligned.txt \
+--remove /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/IBD_INDIV_FID_IID_2.txt \
+--covarColList batch,pc{1:10} \
+--catCovarList batch \
+--maxCatLevels 8 \
+--bsize 1000  \
+--threads 8 \
+--gz"
+
+for job in $(seq 1 $njobs); do
+
+    $base_command \
+    --bed /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_EUR_PGC3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas_sex_exl_MT_Coding  \
+    --out /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis/fit_bin_l0_$job \
+    --run-l0 /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis/fit_bin_parallel.master,$job
+
+done
+```
+
+## ReGENIE Stage3 for STEP1
+sbatch Run_ReGENIE_stage3_step1_CHAffy_GLAD_NBR.sh
+```{bash, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=48:00:00
+#SBATCH --ntasks=8
+#SBATCH --nodes=1
+#SBATCH --mail-user=helena.davies@kcl.ac.uk
+#SBATCH --mail-type=ALL
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/output/Run_regenie_Stage3_STEP1.%j.out
+
+export MKL_NUM_THREADS=8
+export NUMEXPR_NUM_THREADS=8
+export OMP_NUM_THREADS=8
+
+module add utilities/use.dev
+module add apps/regenie/2.2.4-mkl
+
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS
+
+njobs=4
+
+base_command="regenie \
+--step 1 \
+--bt \  ## specify that traits are binary with 0=control,1=case,NA=missing (default is quantitative)
+--covarFile /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_PGCED3_covariates_aligned.txt \
+--phenoFile /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_PGCED3_pheno_formatted_aligned.txt \
+--remove /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/IBD_INDIV_FID_IID.txt \
+--covarColList batch,pc{1:10} \
+--catCovarList batch \
+--maxCatLevels 8 \
+--bsize 1000  \
+--threads 8 \
+--gz"
+
+$base_command \
+  --bed /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_EUR_PGC3_b38_geno0.02_SNPdiffs_excl_hwe6ctl_hwe10cas_sex_exl_MT_Coding \
+  --out /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis/fit_bin_l1 \
+  --run-l1 /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis/fit_bin_parallel.master \
+  --keep-l0
+```
+
+# Clean up MAF and R2 values >0.05 different and HWE differences
+sbatch keep_MAF_R2_HWE.sh
+```{bash, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=0-48:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=4
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/pfile/extract.out
+#SBATCH --array=1-23%23 
+
+echo ${SLURM_ARRAY_TASK_ID} 
+chr=${SLURM_ARRAY_TASK_ID} 
+echo ${chr}
+
+module add apps/plink2
+
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/pfile
+
+plink2 -pfile CHAffy_GLADv2_NBRv1_EUR_imputed_biallele_rsid_SEX_exl_maf001_R2_3_chr${chr} --pheno /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/CHAffy_GLAD_NBR_Pheno.txt --extract /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/pfile/keepsnpsHWE2_${chr} --make-pgen --out CHAffy_GLADv2_NBRv1_EUR_imputed_biallele_rsid_SEX_exl_maf001_R2_3_pheno_Maf_R2_HWE_exl_chr${chr}
+```
+
+## ReGENIE STEP2
+sbatch Run_ReGENIE_Step2_CHAffy_GLAD_NBR_H.sh
+```{r bash, eval=FALSE}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=48:00:00
+#SBATCH --ntasks=8
+#SBATCH --nodes=1
+#SBATCH --mail-user=helena.davies@kcl.ac.uk
+#SBATCH --mail-type=ALL
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/output/Run_regenie_Step2_UKB.%j.out
+#SBATCH --array=1-23%23
+
+export MKL_NUM_THREADS=8
+export NUMEXPR_NUM_THREADS=8
+export OMP_NUM_THREADS=8
+
+echo ${SLURM_ARRAY_TASK_ID}
+chr=${SLURM_ARRAY_TASK_ID}
+echo ${chr} 
+
+module add utilities/use.dev
+module add apps/regenie/2.2.4-mkl
+
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS
+
+regenie \
+--step 2 \
+--pgen /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/imputed/pfile/CHAffy_GLADv2_NBRv1_EUR_imputed_biallele_rsid_SEX_exl_maf001_R2_3_pheno_Maf_R2_HWE_exl_chr${chr} \
+--covarFile /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_PGCED3_covariates_aligned.txt \
+--phenoFile /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/CHAffy_GLAD_NBR_PGCED3_pheno_formatted_aligned.txt \
+--remove /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/genotyped/IBD_INDIV_FID_IID_2.txt \
+--covarColList batch,pc{1:10} \
+--catCovarList batch \
+--maxCatLevels 8 \
+--bsize 1000  \
+--bt \
+--firth \
+--approx \
+--firth-se \
+--pred /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis/fit_bin_l1_pred.list \
+--pThresh 0.05 \
+--out /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis/CHAffy_GLADv2_NBRv1_PGCED3_ReGENIE_Step2_chr${chr} \
+--gz \
+--threads 8 
+```
+
+AFTER REGENIE
+NB: Update all files with today's date each time you run this script. 
+## Concatenating whole chromoromes
+sbatch concatenate_chr_CHAffy_GLAD_NBR.sh
+```{bash, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=48:00:00
+#SBATCH --ntasks=8
+#SBATCH --nodes=1
+#SBATCH --mail-user=helena.davies@kcl.ac.uk
+#SBATCH --mail-type=ALL
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/output/cat_chr_WG.%j.out
+
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis
+
+gunzip -c CHAffy_GLADv2_NBRv1_PGCED3_ReGENIE_Step2_chr1_AN.regenie.gz | head -1 > header.txt
+
+cat header.txt <(cat CHAffy_GLADv2_NBRv1_PGCED3_ReGENIE_Step2_chr*_AN.regenie.gz | gunzip -c | awk '$1 != "CHROM" {print}' | sort -k1,1 -k2,2 -g -u | awk '$13 !="NA" {print}')  > CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_AN_regenie.gz ;
+
+cat header.txt <(cat CHAffy_GLADv2_NBRv1_PGCED3_ReGENIE_Step2_chr*_ANBP.regenie.gz | gunzip -c | awk '$1 != "CHROM" {print}' | sort -k1,1 -k2,2 -g -u | awk '$13 !="NA" {print}')  > CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_ANBP_regenie.gz ;
+
+cat header.txt <(cat CHAffy_GLADv2_NBRv1_PGCED3_ReGENIE_Step2_chr*_ANR.regenie.gz | gunzip -c | awk '$1 != "CHROM" {print}' | sort -k1,1 -k2,2 -g -u | awk '$13 !="NA" {print}')  > CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_ANR_regenie.gz ;
+
+cat header.txt <(cat CHAffy_GLADv2_NBRv1_PGCED3_ReGENIE_Step2_chr*_BE_broad.regenie.gz | gunzip -c | awk '$1 != "CHROM" {print}' | sort -k1,1 -k2,2 -g -u | awk '$13 !="NA" {print}')  > CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_BE_broad_regenie.gz ;
+
+cat header.txt <(cat CHAffy_GLADv2_NBRv1_PGCED3_ReGENIE_Step2_chr*_BE_narrow.regenie.gz | gunzip -c | awk '$1 != "CHROM" {print}' | sort -k1,1 -k2,2 -g -u | awk '$13 !="NA" {print}')  > CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_BE_narrow_regenie.gz ;
+```
+
+## Preparation for Manhattan and QQ plots
+prep_Manhatton_QQ.sh
+```{bash, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=48:00:00
+#SBATCH --ntasks=8
+#SBATCH --nodes=1
+#SBATCH --mail-user=helena.davies@kcl.ac.uk
+#SBATCH --mail-type=ALL
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/output/c.%j.out
+
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis
+
+head -1 CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_AN_regenie.gz | awk '{print $1, $2, $13}'  > MP_header.txt &&
+
+cat MP_header.txt <(awk 'NR > 1 {print}' CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_AN_regenie.gz | awk '{print $1,$2,$13}' | sort -k3gr) > CHAffy_GLADv2_NBRv1_PGCED3_AN.post_imputation_final_analysis &&
+
+cat MP_header.txt <(awk 'NR > 1 {print}' CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_ANBP_regenie.gz | awk '{print $1,$2,$13}' | sort -k3gr) > CHAffy_GLADv2_NBRv1_PGCED3_ANBP.post_imputation_final_analysis &&
+
+cat MP_header.txt <(awk 'NR > 1 {print}' CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_ANR_regenie.gz | awk '{print $1,$2,$13}' | sort -k3gr) > CHAffy_GLADv2_NBRv1_PGCED3_ANR.post_imputation_final_analysis &&
+
+cat MP_header.txt <(awk 'NR > 1 {print}' CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_BE_broad_regenie.gz | awk '{print $1,$2,$13}' | sort -k3gr) > CHAffy_GLADv2_NBRv1_PGCED3_BE_broad.post_imputation_final_analysis &&
+
+cat MP_header.txt <(awk 'NR > 1 {print}' CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_BE_narrow_regenie.gz | awk '{print $1,$2,$13}' | sort -k3gr) > CHAffy_GLADv2_NBRv1_PGCED3_BE_narrow.post_imputation_final_analysis &&
+
+cat \
+<(echo "CHROM GENPOS P") \
+<(awk 'NR > 1 {print $1,$2,10^-$3}' CHAffy_GLADv2_NBRv1_PGCED3_AN.post_imputation_final_analysis) | \
+tr ' ' '\t' > CHAffy_GLADv2_NBRv1_PGCED3_AN.post_imputation_final_analysis_p &&
+
+cat \
+<(echo "CHROM GENPOS P") \
+<(awk 'NR > 1 {print $1,$2,10^-$3}' CHAffy_GLADv2_NBRv1_PGCED3_ANBP.post_imputation_final_analysis) | \
+tr ' ' '\t' > CHAffy_GLADv2_NBRv1_PGCED3_ANBP.post_imputation_final_analysis_p &&
+
+cat \
+<(echo "CHROM GENPOS P") \
+<(awk 'NR > 1 {print $1,$2,10^-$3}' CHAffy_GLADv2_NBRv1_PGCED3_ANR.post_imputation_final_analysis) | \
+tr ' ' '\t' > CHAffy_GLADv2_NBRv1_PGCED3_ANR.post_imputation_final_analysis_p &&
+
+cat \
+<(echo "CHROM GENPOS P") \
+<(awk 'NR > 1 {print $1,$2,10^-$3}' CHAffy_GLADv2_NBRv1_PGCED3_BE_broad.post_imputation_final_analysis) | \
+tr ' ' '\t' > CHAffy_GLADv2_NBRv1_PGCED3_BE_broad.post_imputation_final_analysis_p &&
+
+cat \
+<(echo "CHROM GENPOS P") \
+<(awk 'NR > 1 {print $1,$2,10^-$3}' CHAffy_GLADv2_NBRv1_PGCED3_BE_narrow.post_imputation_final_analysis) | \
+tr ' ' '\t' > CHAffy_GLADv2_NBRv1_PGCED3_BE_narrow.post_imputation_final_analysis_p &&
+
+
+# Take only top 1000000 snps for Manhattan plot
+head -1000001 CHAffy_GLADv2_NBRv1_PGCED3_AN.post_imputation_final_analysis_p > CHAffy_GLADv2_NBRv1_PGCED3_AN.post_imputation_final_analysis_FOR_MP &&
+
+head -1000001 CHAffy_GLADv2_NBRv1_PGCED3_ANBP.post_imputation_final_analysis_p > CHAffy_GLADv2_NBRv1_PGCED3_ANBP.post_imputation_final_analysis_FOR_MP &&
+
+head -1000001 CHAffy_GLADv2_NBRv1_PGCED3_ANR.post_imputation_final_analysis_p > CHAffy_GLADv2_NBRv1_PGCED3_ANR.post_imputation_final_analysis_FOR_MP &&
+
+head -1000001 CHAffy_GLADv2_NBRv1_PGCED3_BE_broad.post_imputation_final_analysis_p > CHAffy_GLADv2_NBRv1_PGCED3_BE_broad.post_imputation_final_analysis_FOR_MP &&
+
+head -1000001 CHAffy_GLADv2_NBRv1_PGCED3_BE_narrow.post_imputation_final_analysis_p > CHAffy_GLADv2_NBRv1_PGCED3_BE_narrow.post_imputation_final_analysis_FOR_MP &&
+```
+
+## R script for Manhatan and QQ plot
+```{R, eval = FALSE}
+source("manhattan_v2.R")
+args <- commandArgs(TRUE)
+root <- NBR_GLAD_Tissue_pcs
+gwas1 <- read.table(paste(root,".post_imputation_final_analysis_FOR_MP",sep=""),head=T)
+data_to_plot <- data.frame(CHR=gwas1$CHROM, BP=gwas1$GENPOS, P=gwas1$P)
+pdf(paste(root,".post_imputation_final_analysis_MP.pdf",sep=""),width=8,height=6)
+manhattan(data_to_plot, GWthresh=-log10(5e-8), GreyZoneThresh=-log10(1e-4), DrawGWline=TRUE)
+dev.off()
+
+
+source("qq_plot_v7.R")
+args <- commandArgs(TRUE)
+root <- args[1]
+gwas1<-read.table("$root.post_imputation_final_analysis_p",head=T)
+x1<-gwas1$P
+pdf(paste(root,".post_imputation_final_analysis_QQ.pdf",sep=""),width=8,height=6)
+qq.plot(x1, alpha=0.05, datatype="pvalue", scaletype="pvalue", df=1, plot.concentration.band=TRUE, one.sided=FALSE,frac=0.1, print=F, xat=NULL, yat=NULL, main=NULL, xlab=NULL, ylab=NULL, pch="x", cex=0.5, col="black")
+text(x=12,y=4,paste("lambda--median=", format((median(qchisq(p=1-x1,df=1)))/0.4549,digits=3),sep=""))
+dev.off()
+
+```
+
+## Run Rscripts 
+```{R, eval = FALSE}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=48:00:00
+#SBATCH --ntasks=8
+#SBATCH --nodes=1
+#SBATCH --mail-user=sang_hyuck.lee@kcl.ac.uk
+#SBATCH --mail-type=ALL
+#SBATCH -o /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/output/c.%j.out
+
+module add apps/R/3.6.0
+
+cd /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis
+
+Rscript ManhattanPlotinR_Regenie.R CHAffy_GLADv2_NBRv1_PGCED3_AN && 
+Rscript ManhattanPlotinR_Regenie.R CHAffy_GLADv2_NBRv1_PGCED3_ANBP &&
+Rscript ManhattanPlotinR_Regenie.R CHAffy_GLADv2_NBRv1_PGCED3_ANR &&
+Rscript ManhattanPlotinR_Regenie.R CHAffy_GLADv2_NBRv1_PGCED3_BE_broad &&
+Rscript ManhattanPlotinR_Regenie.R CHAffy_GLADv2_NBRv1_PGCED3_BE_narrow &&
+Rscript QQPlotinR_Regenie.R CHAffy_GLADv2_NBRv1_PGCED3_AN &&
+Rscript QQPlotinR_Regenie.R CHAffy_GLADv2_NBRv1_PGCED3_ANBP &&
+Rscript QQPlotinR_Regenie.R CHAffy_GLADv2_NBRv1_PGCED3_ANR &&
+Rscript QQPlotinR_Regenie.R CHAffy_GLADv2_NBRv1_PGCED3_BE_broad &&
+Rscript QQPlotinR_Regenie.R CHAffy_GLADv2_NBRv1_PGCED3_BE_narrow
+```

@@ -1,0 +1,45 @@
+---
+title: "DENTIST"
+author: "Helena Davies"
+date: "30/05/2022"
+output: html_document
+---
+
+# Set up DENTIST
+```{bash}
+cd name_of_folder_you_want_DENTIST_in
+git clone https://github.com/Yves-CHEN/DENTIST
+cd DENTIST
+
+wget -O DENTIST_1.1.0.0.gz https://www.dropbox.com/s/1mtskir8qzqsmee/DENTIST.1.1.0.0.gz?dl=0
+
+gunzip DENTIST_1.1.0.0.gz
+ 
+# Check permissions
+ls -l
+
+# Change permissions
+chmod u+x DENTIST_1.1.0.0
+chmod g+x DENTIST_1.1.0.0
+```
+
+# Amend sumstat file to cojo format for use in DENTIST
+```{bash}
+cat <(echo "SNP A1 A2 freq beta se p N") <(awk 'NR>1 {print $3,$5,$4,$6,$10,$11,10^-$13,$8}' CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_AN_regenie.gz) | tr ' ' '\t' > CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_AN_regenie_DENTIST_cojo
+```
+
+# Submit as job
+```{bash}
+#!/bin/bash -l
+#SBATCH --mem-per-cpu=19000
+#SBATCH --partition brc,shared
+#SBATCH --time=48:00:00
+#SBATCH --ntasks=8
+#SBATCH --nodes=1
+
+cd /scratch/groups/bioresource/Public/DENTIST/DENTIST
+
+./DENTIST_1.1.0.0 --gwas-summary /mnt/lustre/groups/gwased/data_raw/CH_GLAD_NBR_ED/GWAS/Regenie_data_analysis/CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_AN_regenie_DENTIST_cojo --out CHAffy_GLADv2_NBRv1_PGCED3_WG_2022_05_20_AN_regenie_DENTIST_cojo_output
+CHAffy_GLADvs_NBRv1_PGCED3_DENTIST.sh 
+```
+

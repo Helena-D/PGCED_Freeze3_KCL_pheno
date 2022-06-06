@@ -5,7 +5,6 @@ date: "09/03/2022"
 output: html_document
 ---
 
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -17,7 +16,7 @@ remove(list = ls())
 
 # Read in data
 ```{r read in  data}
-dat <- readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/data_CharlottesHelix_cleaned_case_control2022-03-09.rds")
+dat <- readRDS(file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/data_CharlottesHelix_cleaned_case_control2022-03-28.rds")
 
 # Check
 dat %>%
@@ -131,7 +130,22 @@ dat <- dat %>%
          ANR,
          ANBP,
          BE_broad,
-         BE_narrow)
+         BE_narrow,
+         visit_barcode_x,
+         visit_barcode_2_x,
+         visit_barcode_3_x,
+         visit_barcode.1_x,
+         visit_barcode_2.1_x,
+         visit_barcode_3.1_x,
+         visit_barcode_4_x,
+         visit_barcode_5_x,
+         visit_barcode_6_x,
+         visit_barcode_7_x,
+         visit_barcode_8_x,
+         visit_barcode_9_x,
+         visit_barcode_10_x,
+         visit_barcode_11_x
+         )
 
 # Final checks
 head(dat)
@@ -146,15 +160,29 @@ dat %>%
   count(ANBP) # 360
 
 dat %>%
-  count(BE_broad) # 356
+  count(BE_broad) # 358
 
 dat %>%
   count(BE_narrow) # 204
 ```
+# Check that all controls are NBR participants with genotype data
+```{r checking controls have NBR genotype data}
+NBR_geno <- read.csv("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/GLAD_NBR_genotyped_IDs/NBRv1_IDs.csv", header = FALSE)
+
+# Rename column 1 to ID
+NBR_geno <- NBR_geno %>%
+  select(ID = V1)
+
+NBR_geno %>%
+  nrow()
+
+dat %>%
+  filter(IID %in% NBR_geno$ID) # 1700
+```
 
 ```{r save as txt file space deliminated}
 write.table(dat,
-            file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/CH_AN25K_PGCED3_pheno_formatted_090322.txt",
+            file = "/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/CH_AN25K_PGCED3_pheno_formatted_280322.txt",
             col.names=T,
             row.names = F,
             quote=F,

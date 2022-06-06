@@ -1,0 +1,128 @@
+---
+title: "GLAD/NBR checking genotype ns"
+author: "Helena Davies"
+date: "17/03/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Delete everything in your global environment
+```{r Delete everything in your global environment}
+remove(list = ls())
+```
+
+Call in functions script
+```{r Source functions}
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/add_numeric.R")
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/remove_duplicates.R")
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/package_check.R")
+```
+
+Use package_check to install and load dependencies
+Load tidyverse last
+```{r Install load dependencies}
+packages <- c("summarytools",
+               "psych",
+               "tidyverse")
+package_check(packages)
+```
+
+Retrieve the recent date
+```{r Recent date}
+date = Sys.Date()
+date
+```
+
+# Read in data
+```{r read in data}
+GLAD_NBR_pheno <- readRDS("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/GLAD_NBR_PGCED3_pheno_formatted_090322.rds")
+
+NBR_geno <- read_csv("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/GLAD_NBR_genotyped_IDs/NBRv1_IDs.csv")
+
+NBR_geno <- NBR_geno %>%
+  select(IID = "5aae667ce865dbc91d74b90ad3df")
+
+GLAD_geno <- read_csv("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/GLAD_NBR_genotyped_IDs/GLADv2_IDs.csv")
+
+GLAD_geno <- GLAD_geno %>%
+  select(IID = "a589a81f56d4aa88a86259044956")
+```
+
+```{r create pheno datasets}
+GLAD_NBR_pheno_AN <- GLAD_NBR_pheno %>%
+  filter(AN == 1)
+
+GLAD_NBR_pheno_ANR <- GLAD_NBR_pheno %>%
+  filter(ANR == 1)
+
+GLAD_NBR_pheno_ANBP <- GLAD_NBR_pheno %>%
+  filter(ANBP == 1)
+
+GLAD_NBR_pheno_BE_broad <- GLAD_NBR_pheno %>%
+  filter(BE_broad == 1)
+
+GLAD_NBR_pheno_BE_narrow <- GLAD_NBR_pheno %>%
+  filter(BE_narrow == 1)
+```
+
+Check ns
+```{r check ns}
+# AN
+GLAD_NBR_pheno_AN %>%
+  filter(IID %in% GLAD_geno$IID) %>%
+  nrow()
+
+GLAD_NBR_pheno_AN %>%
+  filter(IID %in% NBR_geno$IID) %>%
+  nrow()
+
+1111+119 # 1230
+
+# ANR
+GLAD_NBR_pheno_ANR %>%
+  filter(IID %in% GLAD_geno$IID) %>%
+  nrow()
+
+GLAD_NBR_pheno_ANR %>%
+  filter(IID %in% NBR_geno$IID) %>%
+  nrow()
+
+168+22 # 190
+
+# ANBP
+GLAD_NBR_pheno_ANBP %>%
+  filter(IID %in% GLAD_geno$IID) %>%
+  nrow()
+
+GLAD_NBR_pheno_ANBP %>%
+  filter(IID %in% NBR_geno$IID) %>%
+  nrow()
+
+181+23 # 204
+
+# BE_broad
+GLAD_NBR_pheno_BE_broad %>%
+  filter(IID %in% GLAD_geno$IID) %>%
+  nrow()
+
+GLAD_NBR_pheno_BE_broad %>%
+  filter(IID %in% NBR_geno$IID) %>%
+  nrow()
+
+5041 + 932 # 5973
+
+# BE_narrow
+GLAD_NBR_pheno_BE_narrow %>%
+  filter(IID %in% GLAD_geno$IID) %>%
+  nrow()
+
+GLAD_NBR_pheno_BE_narrow %>%
+  filter(IID %in% NBR_geno$IID) %>%
+  nrow()
+
+3931+475 # 4406
+```
+

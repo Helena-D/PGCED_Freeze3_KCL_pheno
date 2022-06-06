@@ -2880,8 +2880,125 @@ head(PCs_dat_final)
 nrow(PCs_dat_final)
 ```
 
-Read in batch data
-```{r read in PC data from Lee}
+# DENTIST
+
+Read in batch data (for DENTIST i.e., plink format)
+```{r read in batch data from Lee DENTIST format}
+covar_batch <- read.table("/scratch/groups/ukbiobank/ukb18177_glanville/genotyped/ukb18177_glanville_binary_pre_qc.fam") # text file. Can cross-check sex information with covariate file to check for errors!
+
+# Check freq
+questionr::freq(covar_batch$V6)
+head(covar_batch)
+
+# Assign dummy column
+columns.dummy <- c(
+"V6"
+)
+
+# Convert to binary columns
+covar_batch_dummy <- fastDummies::dummy_cols(covar_batch,
+                                     select_columns = columns.dummy)
+
+# Check above code worked
+head(covar_batch_dummy)
+
+# Rename other columns
+covar_batch_dummy <- covar_batch_dummy %>% rename(
+       FID = V1,
+       IID = V2,
+       Ma = V3,
+       Pa = V4,
+      Sex = V5
+       )
+
+# Check above code worked
+head(covar_batch_dummy)
+
+# Drop original batch column (V6)
+covar_batch_dummy = subset(covar_batch_dummy,
+                           select = -c(V6) )
+
+
+# Remove one batch, i.e., assign everyone to 0 for that batch
+covar_batch_dummy <- covar_batch_dummy %>%
+  mutate(V6_Batch_b001 =
+           case_when(!is.na(V6_Batch_b001) ~ 0
+                     ))
+
+# Check above code worked (everyone should be 0)
+questionr::freq(covar_batch_dummy$V6_Batch_b001)
+```
+
+```{r merge the two files PC and batch for DENTIST}
+# Change IID to numeric in PC data
+PCs_dat_final$IID <- as.numeric(paste(PCs_dat_final$IID))
+
+PCS_and_batch_dentist <- dplyr::full_join(covar_batch_dummy,
+                                  PCs_dat_final,
+                                  by = "IID")
+
+# Check
+head(PCS_and_batch_dentist)
+colnames(PCS_and_batch_dentist)
+nrow(PCS_and_batch_dentist)
+```
+
+```{r merge with covariate data for DENIST}
+covar_dat_to_merge <- covar_dat %>%
+  select(IID = eid,
+         sex,
+         bmi_at_initial_recruitment,
+         age_at_recruitment)
+
+
+# Merge
+covar_dat_batch_PC_DENTIST <- dplyr::full_join(PCS_and_batch_dentist,
+                                       covar_dat_to_merge,
+                                       by ="IID")
+
+rownames(covar_dat_batch_PC_DENTIST) <- NULL
+
+# Check 
+nrow(covar_dat_batch_PC_DENTIST)
+colnames(covar_dat_batch_PC_DENTIST)
+```
+
+# Need to add centre info 
+```{r add centre info DENTIST}
+centre_info <- read_tsv(file = "/mnt/lustre/groups/ukbiobank/Edinburgh_Data/usr/lee/UKB_PGC_ED/UKB_PGCED3_covariates_aligned.txt")
+
+head(centre_info)
+
+centre_info <- centre_info %>%
+  select(IID,
+         centre)
+
+# Merge
+covar_dat_batch_PC_centre_DENTIST <- dplyr::full_join(covar_dat_batch_PC_DENTIST,
+                                       centre_info,
+                                       by ="IID")
+
+# Check 
+head(covar_dat_batch_PC_centre_DENTIST)
+```
+
+covariate files need to have no missing data (for Regenie)
+```{r remove missing data for DENTIST}
+covar_dat_batch_PC_centre_DENTIST_no_NA <- covar_dat_batch_PC_centre_DENTIST[complete.cases(covar_dat_batch_PC_centre_DENTIST), ]
+
+# Check
+head(covar_dat_batch_PC_centre_DENTIST_no_NA)
+```
+
+```{r save covar data with batch and PC info no NAs DENTIST}
+write_tsv(covar_dat_batch_PC_centre_DENTIST_no_NA,
+          file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED_Freeze3_final_files/UKB_PGCED3_covariates_merged_PC_batch_no_NA_DENTIST.txt")
+```
+
+
+# REGENIE
+Read in batch data (for Regenie)
+```{r read in batch data from Lee regenie format}
 covar_batch <- read.table("/scratch/groups/ukbiobank/ukb18177_glanville/genotyped/ukb18177_glanville_binary_pre_qc.fam") # text file. Can cross-check sex information with covariate file to check for errors!
 
 # Check
@@ -2994,7 +3111,7 @@ colnames(batch_dat_final)
 nrow(batch_dat_final)
 ```
 
-```{r merge the two files PC and batch}
+```{r merge the two files PC and batch for Regnenie}
 # Change IID to numeric in PC data
 PCs_dat_final$IID <- as.numeric(paste(PCs_dat_final$IID))
 
@@ -3008,7 +3125,7 @@ colnames(PCS_and_batch)
 nrow(PCS_and_batch)
 ```
 
-```{r merge with covariate data}
+```{r merge with covariate data for Regenie}
 covar_dat_to_merge <- covar_dat %>%
   select(IID = eid,
          sex,
@@ -3027,7 +3144,7 @@ rownames(covar_dat_batch_PC) <- NULL
 colnames(covar_dat_batch_PC)
 ```
 
-```{r save covar data with batch and PC info}
+```{r save covar data with batch and PC info regenie}
 write_tsv(covar_dat_batch_PC, file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED_Freeze3_final_files/UKB_PGCED3_covariates_merged_PC_batch.txt")
 ```
 
@@ -3038,9 +3155,7 @@ covar_dat <- read_tsv("/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED_Freeze3_
 covar_dat_no_na <- covar_dat[complete.cases(covar_dat), ]
 ```
 
-```{r save covar data with batch and PC info no NAs}
+```{r save covar data with batch and PC info no NAs regenie}
 write_tsv(covar_dat_no_na, file = "/scratch/groups/ukbiobank/usr/helena_d/UKB_PGCED_Freeze3_final_files/UKB_PGCED3_covariates_merged_PC_batch_no_NA.txt")
 ```
-
-
 

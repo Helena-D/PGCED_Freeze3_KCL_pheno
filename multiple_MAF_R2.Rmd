@@ -1,0 +1,183 @@
+---
+title: "Multiple MAF and R2"
+author: "Helena Davies"
+date: "20/04/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Delete everything in your global environment
+```{r Delete everything in your global environment}
+remove(list = ls())
+```
+
+Call in functions script
+```{r Source functions}
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/add_numeric.R")
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/remove_duplicates.R")
+source(file = "/Users/helenadavies/werk/ilovedata/scripts/functions/package_check.R")
+```
+
+Use package_check to install and load dependencies
+Load tidyverse last
+```{r Install load dependencies}
+packages <- c("summarytools",
+               "psych",
+               "tidyverse")
+package_check(packages)
+
+```
+
+Retrieve the recent date
+```{r Recent date}
+date = Sys.Date()
+date
+```
+
+```{bash eval=FALSE, include=FALSE}
+# Download file 
+rsync k19047584@login.rosalind.kcl.ac.uk:/mnt/lustre/groups/gwased/data_raw/CH_NBRctrl_ED/imputed/pfile/CHGSA_NBRv1_EUR_imputed_biallele_rsid_sex_maf001_R2_3_chr1.pvar /Users/helenadavies/Desktop 
+```
+
+# Read in data
+```{r read in data}
+dat <- read.table("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_raw/genetics/CHGSA_NBRv1_EUR_imputed_biallele_rsid_sex_maf001_R2_3_chr1.pvar")
+
+dat <- dat %>%
+  select(chr_position = V3,
+         AF_IMPUTED_MAF_R2 = V7
+         )
+```
+
+```{r split column into multiple columns}
+#dat_split1 <- dat[c('AF_IMPUTED', 'MAF_R2')] <- str_split_fixed(dat$AF_IMPUTED_MAF_R2, 'MAF=', 2)
+
+dat_split1 <- dat %>%
+  separate(AF_IMPUTED_MAF_R2,
+           into = c("AF_IMPUTED",
+                    "MAF_R2"),
+           sep = "MAF=",
+           remove = TRUE
+           )
+
+dat_split2 <- dat_split1 %>%
+  separate(MAF_R2,
+           into = c("MAF",
+                    "R2"),
+           sep = ";R2=",
+           remove = TRUE
+           )
+
+dat_split3 <- dat_split2 %>%
+  separate(MAF,
+           into = c("MAF1",
+                    "MAF2"),
+           sep = ",",
+           remove = TRUE
+           )
+
+dat_split4 <- dat_split3 %>%
+  separate(R2,
+           into = c("R2_1",
+                    "R2_2"),
+           sep = ",",
+           remove = TRUE
+           )
+```
+
+```{r convert MAF and R2 to numeric}
+dat_split4$MAF1 <- as.numeric(dat_split4$MAF1)
+dat_split4$MAF2 <- as.numeric(dat_split4$MAF2)
+dat_split4$R2_1 <- as.numeric(dat_split4$R2_1)
+dat_split4$R2_2 <- as.numeric(dat_split4$R2_2)
+
+# Select final columns
+dat_split_final <- dat_split4 %>%
+  select(chr_position,
+         MAF1,
+         MAF2,
+         R2_1,
+         R2_2)
+```
+
+# First, filter out variants with only one MAF and/or only R2 value
+```{r create new variable of difference between MAF}
+dat_split_final %>%
+  nrow() # 1118831
+
+dat_split_final <- dat_split_final %>%
+  filter(!is.na(MAF2) |
+           !is.na(R2_2))
+
+dat_split_final %>%
+  nrow() # 992277
+
+1118831 - 992277 # = 126,554 variants have only one MAF and/or one R2 value
+```
+
+# Second, make new variables of difference between MAF1 and MAF2, and R2_1 and R2_2
+```{r new variable of difference}
+# MAF difference
+dat_split_final <- dat_split_final %>%
+  mutate(MAF_diff = 
+           case_when(!is.na(MAF1) ~ MAF1 - MAF2))
+
+# Check
+dat_split_final %>%
+  descr(MAF_diff)
+
+# R2 difference
+dat_split_final <- dat_split_final %>%
+  mutate(R2_diff = 
+           case_when(!is.na(R2_1) ~ R2_1 - R2_2))
+
+# Check
+dat_split_final %>%
+  descr(R2_diff)
+```
+
+# Next, make the differences absolute values
+```{r make diffs absolute}
+dat_split_final$MAF_diff <- abs(dat_split_final$MAF_diff)
+dat_split_final$R2_diff <- abs(dat_split_final$R2_diff)
+```
+
+# Finally, filter by MAFs and/or R2 differences of under 0.05
+```{r filter out diffs over 0.05}
+dat_split_final %>%
+  nrow() # 992,277
+
+dat_split_final <- dat_split_final %>%
+  filter(MAF_diff <= 0.05 &
+         R2_diff  <= 0.05)
+
+dat_split_final %>%
+  nrow() # 779,262
+
+992277 - 779262 # = 213,015 variants had MAFs and/or R2 value differences over 0.05
+
+# TOTAL VARIANTS LOST 
+1118831 - 779262 # = 339,569 variants lost in total
+```
+# Save the chromosome position in separate file
+```{r save chr_position}
+dat_split_final$chr_position <- as.factor(dat_split_final$chr_position)
+
+dat_split_final %>%
+  select(chr_position) 
+  write.csv("/Users/helenadavies/King's College London/MT-Translational Neuropsychiatric Genomics - Helena_Davies_PhD - Helena_Davies_PhD/PGC_Freeze3_cases/data_cleaned/genetics/CH_GSA_chr1_keep_factor.csv", row.names = FALSE, quote = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
